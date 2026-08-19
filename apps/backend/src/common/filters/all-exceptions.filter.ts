@@ -8,8 +8,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let errorDetails = null;
+    let message: any = 'Internal server error';
+    let errorDetails: any = null;
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -31,7 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode,
       message,
       data: null,
-      error: errorDetails || exception['name'] || 'Error',
+      error: errorDetails || (exception as any)?.name || 'Error',
     });
   }
 }

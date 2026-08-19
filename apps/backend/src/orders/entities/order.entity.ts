@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { Point } from 'geojson';
+import type { Point } from 'geojson';
 import { User } from '../../users/entities/user.entity';
 
 export enum OrderStatus {
@@ -27,7 +27,7 @@ export class Order {
   customer: User;
 
   @Column('uuid', { nullable: true })
-  driver_id: string;
+  driver_id: string | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'driver_id' })

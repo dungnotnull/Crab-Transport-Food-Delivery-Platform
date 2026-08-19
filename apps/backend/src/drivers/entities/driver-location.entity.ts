@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryColumn, OneToOne, JoinColumn, Index, UpdateDateColumn } from 'typeorm';
-import { Point } from 'geojson';
+import type { Point } from 'geojson';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('driver_locations')
@@ -24,7 +24,7 @@ export class DriverLocation {
   is_online: boolean;
 
   @Column('uuid', { nullable: true })
-  active_order_id: string;
+  active_order_id: string | null;
 
   @UpdateDateColumn()
   last_updated: Date;

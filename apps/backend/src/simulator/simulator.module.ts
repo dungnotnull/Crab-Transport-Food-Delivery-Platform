@@ -4,9 +4,10 @@ import { SimulatorService } from './simulator.service';
 import { RoutingModule } from '../routing/routing.module';
 import { TrackingModule } from '../tracking/tracking.module';
 import { OrdersModule } from '../orders/orders.module';
+import { DriversModule } from '../drivers/drivers.module';
 
 @Module({
-  imports: [RoutingModule, TrackingModule, OrdersModule],
+  imports: [RoutingModule, TrackingModule, OrdersModule, DriversModule],
   controllers: [SimulatorController],
   providers: [SimulatorService],
 })

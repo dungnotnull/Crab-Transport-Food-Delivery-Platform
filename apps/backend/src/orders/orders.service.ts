@@ -249,7 +249,7 @@ export class OrdersService {
     const review = this.reviewsRepository.create({
       order_id: order.id,
       customer_id: customerId,
-      driver_id: order.driver_id,
+      driver_id: order.driver_id!,
       rating,
       feedback,
     });

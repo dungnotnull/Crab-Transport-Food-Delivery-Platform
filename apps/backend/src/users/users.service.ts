@@ -59,7 +59,7 @@ export class UsersService implements OnModuleInit {
   async findAllAdmins(): Promise<User[]> {
     return this.usersRepository.find({
       where: { role: Role.ADMIN },
-      select: ['id', 'email', 'role', 'is_active', 'created_at'],
+      select: { id: true, email: true, role: true, is_active: true, created_at: true },
     });
   }
 
