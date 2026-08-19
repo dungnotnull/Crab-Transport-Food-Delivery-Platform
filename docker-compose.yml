@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: crab_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-crab_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - crab_db_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: crab_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@crab.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+  redis:
+    image: redis:7-alpine
+    container_name: crab_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  osrm-backend:
+    image: osrm/osrm-backend
+    container_name: crab_osrm
+    restart: always
+    ports:
+      - "5000:5000"
+    command: "osrm-routed --algorithm mld /data/map.osrm"
+    volumes:
+      - ./osrm/data:/data
+    # Note: OSRM requires map data to be pre-processed before it can route.
+    # A separate step is required to download a .osm.pbf map file and run osrm-extract, osrm-partition, osrm-customize.
+
+volumes:
+  crab_db_data:

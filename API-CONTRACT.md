@@ -18,22 +18,101 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 
 ---
 
-## 2. API Endpoints cốt lõi (Draft)
+## 2. API Endpoints cốt lõi
 
-### 2.1. Đặt cuốc (Customer)
+### 2.1. Xem trước cước phí và bản đồ đường đi (Customer)
+- **POST** `/api/v1/orders/preview`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "pickup": { "lat": 10.762622, "lng": 106.660172 },
+    "dropoff": { "lat": 10.776889, "lng": 106.700806 }
+  }
+  ```
+- **Response**: Trả về `distance`, `duration`, `fare` và đặc biệt là `geometry` (mảng tọa độ geojson để Frontend dùng thư viện Leaflet vẽ polyline đường đi thực tế).
+
+### 2.2. Đặt cuốc (Customer)
 - **POST** `/api/v1/orders/book`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "pickup": { "lat": 10.762622, "lng": 106.660172 },
+    "dropoff": { "lat": 10.776889, "lng": 106.700806 },
+    "vehicleType": "BIKE"
+  }
+  ```
 
-### 2.2. Tài xế nhận cuốc
-- **POST** `/api/v1/orders/:orderId/accept`
+### 2.2. Tài xế nhận cuốc (Driver)
+- **POST** `/api/v1/orders/:id/accept`
+- **Headers**: `Authorization: Bearer <token>`
 
-### 2.3. Trình giả lập tài xế (Simulator - Dev/Test)
+### 2.3. Hủy cuốc (Customer/Driver)
+- **POST** `/api/v1/orders/:id/cancel`
+- **Headers**: `Authorization: Bearer <token>`
+
+### 2.4. Cập nhật trạng thái cuốc (Driver)
+- **PATCH** `/api/v1/orders/:id/status`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "status": "ARRIVED_AT_RESTAURANT" 
+    // Các giá trị: ARRIVED_AT_PICKUP, IN_TRANSIT, ARRIVED_AT_RESTAURANT, WAITING_FOR_FOOD, ARRIVED_AT_DESTINATION, COMPLETED
+  }
+  ```
+
+### 2.5. Đánh giá chuyến đi (Customer)
+- **POST** `/api/v1/orders/:id/rating`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "rating": 5,
+    "feedback": "Tài xế thân thiện, đi cẩn thận!"
+  }
+  ```
+
+### 2.6. Trình giả lập tài xế (Simulator - Dev/Test)
 - **POST** `/api/v1/simulator/simulate-trip`
-- **Request Payload**:
+- **Payload**:
   ```json
   {
     "orderId": "ORD-123456",
-    "speedMultiplier": 2.0,
     "simulateFoodWait": true
+  }
+  ```
+
+### 2.7. Bật/Tắt Thời tiết cực đoan (Admin/System Admin)
+- **POST** `/api/v1/pricing/weather`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "isRaining": true
+  }
+  ```
+- **Mô tả**: Khi bật cờ này, hàm tính cước `calculateFare` sẽ tự động kích hoạt surge giá `+50%` do điều kiện thời tiết khắc nghiệt.
+
+### 2.8. Cập nhật trạng thái Trực tuyến của Tài xế (Driver)
+- **PATCH** `/api/v1/drivers/status`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "is_online": true
+  }
+  ```
+
+### 2.9. Cập nhật vị trí ban đầu của Tài xế (Driver)
+- **PATCH** `/api/v1/drivers/location`
+- **Headers**: `Authorization: Bearer <token>`
+- **Payload**:
+  ```json
+  {
+    "lat": 10.762622,
+    "lng": 106.660172
   }
   ```
 
@@ -41,11 +120,14 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 
 ## 3. Websocket Events (Socket.io)
 
+Endpoint Gateway: `ws://localhost:3000` (Handshake Auth với token `Bearer`).
+
 ### Client ⇄ Server Event Contracts
 
 | Event Name | Direction | Payload | Description |
 | --- | --- | --- | --- |
-| `driver:update_location` | Driver ➔ Server | `{ lat: number, lng: number, heading: number }` | Driver telemetry broadcast |
-| `order:location_stream` | Server ➔ Customer | `{ orderId: string, lat: number, lng: number, heading: number }` | Relays driver position to customer |
-| `order:status_changed` | Server ➔ Both | `{ orderId: string, status: OrderStatus, timestamp: string }` | State machine transition notification |
-| `driver:order_offer` | Server ➔ Driver | `{ orderId: string, pickup: Point, dropoff: Point, fare: number }` | Incoming order dispatch alert |
+| `join_room` | Client ➔ Server | `order_ORD-123456` | Khách hàng join vào room của Order để nghe cập nhật |
+| `driver:update_location` | Driver ➔ Server | `{ orderId: string, lat: number, lng: number }` | Tài xế báo vị trí liên tục |
+| `order:location_stream` | Server ➔ Customer | `{ driverId: string, lat: number, lng: number, timestamp: string }` | Báo vị trí tài xế cho Customer theo thời gian thực |
+| `order:status_changed` | Server ➔ Both | `{ orderId: string, status: OrderStatus, timestamp: string }` | Thông báo tự động khi trạng thái thay đổi |
+| `driver:order_offer` | Server ➔ Driver | `{ orderId: string, pickup: Point, dropoff: Point, fare: number, expiredAt: string }` | Hệ thống nổ cuốc cho tài xế |
