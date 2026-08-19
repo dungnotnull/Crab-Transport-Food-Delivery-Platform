@@ -1,0 +1,5 @@
+interface:
+  display_name: "Micro-Interactions & Animations"
+  short_description: "Craft 60fps animations, radar pulses, and smooth transitions"
+policy:
+  allow_implicit_invocation: true

@@ -20,57 +20,105 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 
 ## 2. API Endpoints cốt lõi
 
-### 2.1. Đăng ký tài khoản (Customer/Driver)
+### 2.1. Đăng nhập hệ thống (Hỗ trợ 3 Roles: CUSTOMER, DRIVER, ADMIN)
+- **POST** `/api/v1/auth/login`
+- **Payload**:
+  ```json
+  {
+    "email": "customer@crab.com",
+    "password": "password123"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "statusCode": 200,
+    "message": "Login successful",
+    "data": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+      "user": {
+        "id": "usr_123456",
+        "email": "customer@crab.com",
+        "full_name": "Nguyễn Văn A",
+        "phone_number": "0987654321",
+        "role": "CUSTOMER", // CUSTOMER | DRIVER | ADMIN | SYSTEM_ADMIN
+        "avatar_url": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
+        "driverProfile": null // Chứa thông tin xe nếu role = DRIVER
+      }
+    },
+    "error": null
+  }
+  ```
+
+### 2.2. Đăng ký tài khoản (Customer & Driver với đầy đủ thông tin phương tiện + hình ảnh)
 - **POST** `/api/v1/auth/register`
 - **Payload**:
   ```json
   {
     "email": "driver1@crab.com",
     "password": "password123",
-    "full_name": "Nguyen Van A",
-    "phone_number": "0987654321",
-    "role": "DRIVER",
-    "license_plate": "59P1-12345", // Bắt buộc nếu role = DRIVER
-    "vehicle_type": "BIKE",        // Bắt buộc nếu role = DRIVER
-    "color": "Red"                 // Tùy chọn
+    "full_name": "Trần Văn Tài Xế",
+    "phone_number": "0912345678",
+    "role": "DRIVER", // "CUSTOMER" hoặc "DRIVER"
+    "avatar_url": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61", // Tùy chọn ảnh chân dung
+    
+    // --- Các trường bắt buộc NẾU role = DRIVER ---
+    "license_plate": "59P1-88888",     // Biển số xe
+    "vehicle_type": "BIKE",            // "BIKE" hoặc "CAR"
+    "vehicle_brand": "Honda Wave Alpha", // Hiệu xe / Dòng xe
+    "color": "Xanh lá",                // Màu sắc xe
+    "vehicle_image": "https://images.unsplash.com/photo-1558981403-c5f9899a28bc" // Ảnh chụp xe
   }
   ```
 
-### 2.2. Xem trước cước phí và bản đồ đường đi (Customer)
+### 2.3. Xem trước cước phí và bản đồ đường đi (Customer)
 - **POST** `/api/v1/trips/preview`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
   {
-    "pickup": { "lat": 10.762622, "lng": 106.660172 },
-    "dropoff": { "lat": 10.776889, "lng": 106.700806 }
+    // Tọa độ mẫu chuẩn: Điểm đón tại Halo Building
+    "pickup": { 
+      "lat": 10.782800, 
+      "lng": 106.695800,
+      "address": "Tòa nhà Halo Building, Quận 1, TP. Hồ Chí Minh" 
+    },
+    // Điểm đến (Dropoff)
+    "dropoff": { 
+      "lat": 10.776889, 
+      "lng": 106.700806,
+      "address": "Chợ Bến Thành, Quận 1, TP. Hồ Chí Minh" 
+    }
   }
   ```
-- **Response**: Trả về `distance`, `duration`, `fare` và đặc biệt là `geometry` (mảng tọa độ geojson để Frontend dùng thư viện Leaflet vẽ polyline đường đi thực tế).
+- **Response**: Trả về `distance` (mét/km), `duration` (giây/phút), `fare` (VND) và mảng `geometry` (tọa độ geojson để Leaflet vẽ Polyline thực tế).
 
-### 2.2. Đặt cuốc (Customer)
+### 2.4. Đặt cuốc (Customer)
 - **POST** `/api/v1/trips/book`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
   {
-    "pickup": { "lat": 10.762622, "lng": 106.660172 },
-    "dropoff": { "lat": 10.776889, "lng": 106.700806 },
-    "vehicleType": "BIKE",
+    "pickup": { "lat": 10.782800, "lng": 106.695800, "address": "Halo Building" },
+    "dropoff": { "lat": 10.776889, "lng": 106.700806, "address": "Chợ Bến Thành" },
+    "vehicleType": "BIKE", // BIKE | CAR | FOOD
     "coupon_code": "WELCOME10K",
-    "paymentMethod": "CASH" // Tùy chọn: CASH (Mặc định), CREDIT_CARD, E_WALLET
+    "paymentMethod": "CASH" // CASH (Mặc định), CREDIT_CARD, E_WALLET
   }
   ```
 
-### 2.2. Tài xế nhận cuốc (Driver)
+### 2.5. Tài xế nhận cuốc (Driver)
 - **POST** `/api/v1/trips/:id/accept`
 - **Headers**: `Authorization: Bearer <token>`
+- **Response**: 
+  - Thành công `200`: Chuyển đơn sang `ACCEPTED`.
+  - Thất bại `409 Conflict`: "Cuốc xe đã được tài xế khác tiếp nhận!" (Pessimistic Lock).
 
-### 2.3. Hủy cuốc (Customer/Driver)
+### 2.6. Hủy cuốc (Customer/Driver)
 - **POST** `/api/v1/trips/:id/cancel`
 - **Headers**: `Authorization: Bearer <token>`
 
-### 2.4. Cập nhật trạng thái cuốc (Driver)
+### 2.7. Cập nhật trạng thái cuốc (Driver)
 - **PATCH** `/api/v1/trips/:id/status`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
@@ -81,66 +129,44 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   }
   ```
 
-### 2.5. Đánh giá chuyến đi (Customer)
+### 2.8. Đánh giá chuyến đi (Customer)
 - **POST** `/api/v1/trips/:id/rating`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
   {
     "rating": 5,
-    "feedback": "Tài xế thân thiện, đi cẩn thận!"
+    "feedback": "Tài xế lái xe cẩn thận, đúng giờ!"
   }
   ```
 
-### 2.6. Trình giả lập tài xế (Simulator - Dev/Test)
+### 2.9. Trình giả lập tài xế ảo (Simulator - Dev/Test Tool)
 - **POST** `/api/v1/simulator/simulate-trip`
 - **Payload**:
   ```json
   {
-    "tripId": "ORD-123456"
+    "tripId": "ORD-123456",
+    "speedMultiplier": 2.0
   }
   ```
 
-### 2.7. Bật/Tắt Thời tiết cực đoan (Admin/System Admin)
-- **POST** `/api/v1/pricing/weather`
+### 2.10. Cập nhật trạng thái Trực tuyến & Vị trí Tài xế (Driver)
+- **PATCH** `/api/v1/drivers/status` -> `{ "is_online": true }`
+- **PATCH** `/api/v1/drivers/location` -> `{ "lat": 10.782800, "lng": 106.695800 }`
 - **Headers**: `Authorization: Bearer <token>`
-- **Payload**:
-  ```json
-  {
-    "isRaining": true
-  }
-  ```
-- **Mô tả**: Khi bật cờ này, hàm tính cước `calculateFare` sẽ tự động kích hoạt surge giá `+50%` do điều kiện thời tiết khắc nghiệt.
 
-### 2.8. Cập nhật trạng thái Trực tuyến của Tài xế (Driver)
-- **PATCH** `/api/v1/drivers/status`
-- **Headers**: `Authorization: Bearer <token>`
-- **Payload**:
-  ```json
-  {
-    "is_online": true
-  }
-  ```
-
-### 2.9. Cập nhật vị trí ban đầu của Tài xế (Driver)
-- **PATCH** `/api/v1/drivers/location`
-- **Headers**: `Authorization: Bearer <token>`
-- **Payload**:
-  ```json
-  {
-    "lat": 10.762622,
-    "lng": 106.660172
-  }
-  ```
-
-### 2.10. Quản lý Người dùng (Dành cho Admin CMS)
+### 2.11. Quản lý Thống kê & Người dùng Đơn giản (Dành cho Admin Dashboard)
 - **GET** `/api/v1/users/customers`
   - Lấy danh sách toàn bộ khách hàng.
 - **GET** `/api/v1/users/drivers`
-  - Lấy danh sách toàn bộ tài xế (Kèm thông tin xe và đánh giá `driverProfile.average_rating`).
+  - Lấy danh sách toàn bộ tài xế kèm biển số xe, hiệu xe, ảnh và rating `driverProfile.average_rating`.
+- **GET** `/api/v1/admin/stats` (hoặc tính toán tổng hợp trên FE)
+  - Tổng số cuốc xe, Tổng doanh thu, Số tài xế đang online.
 - **PATCH** `/api/v1/users/:id/toggle-active`
   - Khóa/Mở khóa tài khoản (Payload: `{ "is_active": false }`).
-- **Headers cho các API trên**: `Authorization: Bearer <token>` (Yêu cầu role `SYSTEM_ADMIN` hoặc `ADMIN`).
+- **POST** `/api/v1/pricing/weather`
+  - Bật/Tắt Thời tiết mưa bão (Surge +50%) `{ "isRaining": true }`.
+- **Headers cho các API Admin**: `Authorization: Bearer <token>` (Yêu cầu role `SYSTEM_ADMIN` hoặc `ADMIN`).
 
 ---
 
@@ -152,8 +178,8 @@ Endpoint Gateway: `ws://localhost:3000` (Handshake Auth với token `Bearer`).
 
 | Event Name | Direction | Payload | Description |
 | --- | --- | --- | --- |
-| `join_room` | Client ➔ Server | `trip_ORD-123456` | Khách hàng join vào room của Trip để nghe cập nhật |
-| `driver:update_location` | Driver ➔ Server | `{ tripId: string, lat: number, lng: number }` | Tài xế báo vị trí liên tục |
-| `trip:location_stream` | Server ➔ Customer | `{ driverId: string, lat: number, lng: number, timestamp: string }` | Báo vị trí tài xế cho Customer theo thời gian thực |
-| `trip:status_changed` | Server ➔ Both | `{ tripId: string, status: OrderStatus, reason?: string, timestamp: string }` | Thông báo tự động khi trạng thái thay đổi (có thể kèm `reason` nếu bị hủy bởi hệ thống SLA Timeout) |
-| `driver:trip_offer` | Server ➔ Driver | `{ tripId: string, pickup: Point, dropoff: Point, fare: number, expiredAt: string }` | Hệ thống nổ cuốc cho tài xế |
+| `join_room` | Client ➔ Server | `trip_ORD-123456` | Khách hàng/Tài xế join vào room của Trip |
+| `driver:update_location` | Driver ➔ Server | `{ tripId: string, lat: number, lng: number, heading?: number }` | Tài xế báo vị trí GPS liên tục |
+| `trip:location_stream` | Server ➔ Customer | `{ driverId: string, lat: number, lng: number, heading: number, timestamp: string }` | Báo vị trí tài xế cho Customer theo thời gian thực |
+| `trip:status_changed` | Server ➔ Both | `{ tripId: string, status: OrderStatus, reason?: string, timestamp: string }` | Thông báo tự động khi trạng thái chuyến đi thay đổi |
+| `driver:trip_offer` | Server ➔ Driver | `{ tripId: string, pickup: Point, dropoff: Point, fare: number, expiredAt: string }` | Hệ thống nổ cuốc cho tài xế (15s countdown) |

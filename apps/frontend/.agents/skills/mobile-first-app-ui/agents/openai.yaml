@@ -1,0 +1,5 @@
+interface:
+  display_name: "Mobile-First App UI"
+  short_description: "Design thumb-zone ergonomics, bottom sheets, and responsive layouts"
+policy:
+  allow_implicit_invocation: true

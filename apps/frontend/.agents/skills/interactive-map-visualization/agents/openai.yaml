@@ -1,0 +1,5 @@
+interface:
+  display_name: "Interactive Map Visualization"
+  short_description: "Build Leaflet.js maps with rotating SVG markers and glowing routes"
+policy:
+  allow_implicit_invocation: true
