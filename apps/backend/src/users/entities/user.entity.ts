@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne } from 'typeorm';
+import { DriverProfile } from '../../drivers/entities/driver-profile.entity';
 
 export enum Role {
   SYSTEM_ADMIN = 'SYSTEM_ADMIN',
@@ -42,4 +43,7 @@ export class User {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @OneToOne(() => DriverProfile, profile => profile.user)
+  driverProfile: DriverProfile;
 }

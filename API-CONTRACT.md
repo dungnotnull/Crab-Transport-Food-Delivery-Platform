@@ -132,6 +132,15 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   }
   ```
 
+### 2.10. Quản lý Người dùng (Dành cho Admin CMS)
+- **GET** `/api/v1/users/customers`
+  - Lấy danh sách toàn bộ khách hàng.
+- **GET** `/api/v1/users/drivers`
+  - Lấy danh sách toàn bộ tài xế (Kèm thông tin xe `driverProfile`).
+- **PATCH** `/api/v1/users/:id/toggle-active`
+  - Khóa/Mở khóa tài khoản (Payload: `{ "is_active": false }`).
+- **Headers cho các API trên**: `Authorization: Bearer <token>` (Yêu cầu role `SYSTEM_ADMIN` hoặc `ADMIN`).
+
 ---
 
 ## 3. Websocket Events (Socket.io)

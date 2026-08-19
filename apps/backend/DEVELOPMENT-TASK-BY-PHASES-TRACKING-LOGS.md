@@ -19,6 +19,15 @@
 - [x] **Task 1.4: System Admin & Management API (`modules/users`)**
   - [x] Implement CRUD API cho `SYSTEM_ADMIN` để tạo/xóa các account `ADMIN` phụ hoặc vô hiệu hóa người dùng.
   - [x] Cài đặt decorator `@Roles(Role.SYSTEM_ADMIN)` để phân quyền khắt khe.
+- [x] **Task 1.5: Production-Ready User Profiles**
+  - [x] Thêm `full_name`, `phone_number`, `avatar_url` vào bảng `users`.
+  - [x] Tạo `DriverProfile` lưu `license_plate`, `vehicle_type`.
+  - [x] Sửa `register` API để hỗ trợ query builder transaction.
+- [x] **Task 1.6: Admin Management API**
+  - [x] Cho phép `Role.ADMIN` truy cập API `toggle-active`.
+  - [x] Logic block không cho `ADMIN` khóa tài khoản `SYSTEM_ADMIN`.
+  - [x] Thêm `GET /api/v1/users/customers` để lấy danh sách khách hàng.
+  - [x] Thêm `GET /api/v1/users/drivers` (Join với bảng `driver_profiles`).
 
 ## Phase 2: Core Booking, Maps & State Machine
 - [x] **Task 2.1: Routing Module (`modules/routing`)**
@@ -84,10 +93,4 @@
   - [x] Tạo `Review` entity lưu đánh giá 1-5 sao.
   - [x] API `POST /api/v1/orders/:id/rating` để Customer gửi đánh giá khi cuốc xe kết thúc.
 
-## Phase 7: Production-Ready User Profiles
-- [x] **Task 7.1: User Entity Upgrade**
-  - [x] Thêm `full_name`, `phone_number`, `avatar_url` vào bảng `users`.
-- [x] **Task 7.2: Driver Profile Entity**
-  - [x] Tạo `DriverProfile` lưu `license_plate`, `vehicle_type`.
-- [x] **Task 7.3: Auth Service Transaction**
-  - [x] Sửa `register` API để hỗ trợ query builder transaction.
+

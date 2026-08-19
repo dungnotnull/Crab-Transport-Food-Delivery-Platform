@@ -30,14 +30,35 @@ export class UsersController {
     return result;
   }
 
+  @Get('customers')
+  @Roles(Role.SYSTEM_ADMIN, Role.ADMIN)
+  async getCustomers() {
+    return this.usersService.findAllCustomers();
+  }
+
+  @Get('drivers')
+  @Roles(Role.SYSTEM_ADMIN, Role.ADMIN)
+  async getDrivers() {
+    return this.usersService.findAllDrivers();
+  }
+
   @Patch(':id/toggle-active')
-  @Roles(Role.SYSTEM_ADMIN)
+  @Roles(Role.SYSTEM_ADMIN, Role.ADMIN)
   async toggleActive(@Param('id') id: string, @Body('is_active') isActive: boolean) {
     try {
+      const targetUser = await this.usersService.findById(id);
+      if (!targetUser) throw new NotFoundException('User not found');
+      
+      // Prevent ADMIN from disabling SYSTEM_ADMIN
+      if (targetUser.role === Role.SYSTEM_ADMIN) {
+        throw new ConflictException('Cannot modify SYSTEM_ADMIN account');
+      }
+
       const user = await this.usersService.toggleActive(id, isActive);
       const { password, ...result } = user;
       return result;
     } catch (e) {
+      if (e instanceof ConflictException) throw e;
       throw new NotFoundException(e.message);
     }
   }

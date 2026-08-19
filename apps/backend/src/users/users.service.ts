@@ -62,6 +62,24 @@ export class UsersService implements OnModuleInit {
     return this.usersRepository.save(user);
   }
 
+  async findAllCustomers(): Promise<User[]> {
+    return this.usersRepository.find({
+      where: { role: Role.CUSTOMER },
+      select: { id: true, email: true, full_name: true, phone_number: true, is_active: true, created_at: true },
+    });
+  }
+
+  async findAllDrivers(): Promise<User[]> {
+    return this.usersRepository.createQueryBuilder('user')
+      .where('user.role = :role', { role: Role.DRIVER })
+      .leftJoinAndSelect('user.driverProfile', 'driverProfile')
+      .select([
+        'user.id', 'user.email', 'user.full_name', 'user.phone_number', 'user.is_active', 'user.created_at',
+        'driverProfile.license_plate', 'driverProfile.vehicle_type', 'driverProfile.color'
+      ])
+      .getMany();
+  }
+
   async findAllAdmins(): Promise<User[]> {
     return this.usersRepository.find({
       where: { role: Role.ADMIN },
