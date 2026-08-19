@@ -18,6 +18,15 @@ export class User {
   @Column()
   password?: string; // Optional because we might add OAuth later, and usually we exclude it from responses
 
+  @Column({ default: 'Unknown' })
+  full_name: string;
+
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  phone_number: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  avatar_url: string | null;
+
   @Column({
     type: 'enum',
     enum: Role,

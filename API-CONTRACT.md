@@ -20,7 +20,23 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 
 ## 2. API Endpoints cốt lõi
 
-### 2.1. Xem trước cước phí và bản đồ đường đi (Customer)
+### 2.1. Đăng ký tài khoản (Customer/Driver)
+- **POST** `/api/v1/auth/register`
+- **Payload**:
+  ```json
+  {
+    "email": "driver1@crab.com",
+    "password": "password123",
+    "full_name": "Nguyen Van A",
+    "phone_number": "0987654321",
+    "role": "DRIVER",
+    "license_plate": "59P1-12345", // Bắt buộc nếu role = DRIVER
+    "vehicle_type": "BIKE",        // Bắt buộc nếu role = DRIVER
+    "color": "Red"                 // Tùy chọn
+  }
+  ```
+
+### 2.2. Xem trước cước phí và bản đồ đường đi (Customer)
 - **POST** `/api/v1/orders/preview`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:

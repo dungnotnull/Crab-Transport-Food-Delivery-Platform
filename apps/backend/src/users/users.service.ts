@@ -35,6 +35,8 @@ export class UsersService implements OnModuleInit {
         email: adminEmail,
         password: hashedPassword,
         role: Role.SYSTEM_ADMIN,
+        full_name: 'System Administrator',
+        phone_number: null,
       });
       await this.usersRepository.save(systemAdmin);
       this.logger.log(`Seeded SYSTEM_ADMIN account with email: ${adminEmail}`);
@@ -45,6 +47,10 @@ export class UsersService implements OnModuleInit {
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
+  }
+
+  async findByPhoneNumber(phone_number: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { phone_number } });
   }
 
   async findById(id: string): Promise<User | null> {

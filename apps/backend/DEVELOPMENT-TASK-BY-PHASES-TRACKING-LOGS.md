@@ -83,3 +83,11 @@
 - [x] **Task 6.1: Review Entity & APIs**
   - [x] Tạo `Review` entity lưu đánh giá 1-5 sao.
   - [x] API `POST /api/v1/orders/:id/rating` để Customer gửi đánh giá khi cuốc xe kết thúc.
+
+## Phase 7: Production-Ready User Profiles
+- [x] **Task 7.1: User Entity Upgrade**
+  - [x] Thêm `full_name`, `phone_number`, `avatar_url` vào bảng `users`.
+- [x] **Task 7.2: Driver Profile Entity**
+  - [x] Tạo `DriverProfile` lưu `license_plate`, `vehicle_type`.
+- [x] **Task 7.3: Auth Service Transaction**
+  - [x] Sửa `register` API để hỗ trợ query builder transaction.
