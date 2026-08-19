@@ -138,7 +138,7 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 - **GET** `/api/v1/users/customers`
   - Lấy danh sách toàn bộ khách hàng.
 - **GET** `/api/v1/users/drivers`
-  - Lấy danh sách toàn bộ tài xế (Kèm thông tin xe `driverProfile`).
+  - Lấy danh sách toàn bộ tài xế (Kèm thông tin xe và đánh giá `driverProfile.average_rating`).
 - **PATCH** `/api/v1/users/:id/toggle-active`
   - Khóa/Mở khóa tài khoản (Payload: `{ "is_active": false }`).
 - **Headers cho các API trên**: `Authorization: Bearer <token>` (Yêu cầu role `SYSTEM_ADMIN` hoặc `ADMIN`).
@@ -156,5 +156,5 @@ Endpoint Gateway: `ws://localhost:3000` (Handshake Auth với token `Bearer`).
 | `join_room` | Client ➔ Server | `order_ORD-123456` | Khách hàng join vào room của Order để nghe cập nhật |
 | `driver:update_location` | Driver ➔ Server | `{ orderId: string, lat: number, lng: number }` | Tài xế báo vị trí liên tục |
 | `order:location_stream` | Server ➔ Customer | `{ driverId: string, lat: number, lng: number, timestamp: string }` | Báo vị trí tài xế cho Customer theo thời gian thực |
-| `order:status_changed` | Server ➔ Both | `{ orderId: string, status: OrderStatus, timestamp: string }` | Thông báo tự động khi trạng thái thay đổi |
+| `order:status_changed` | Server ➔ Both | `{ orderId: string, status: OrderStatus, reason?: string, timestamp: string }` | Thông báo tự động khi trạng thái thay đổi (có thể kèm `reason` nếu bị hủy bởi hệ thống SLA Timeout) |
 | `driver:order_offer` | Server ➔ Driver | `{ orderId: string, pickup: Point, dropoff: Point, fare: number, expiredAt: string }` | Hệ thống nổ cuốc cho tài xế |

@@ -16,8 +16,11 @@ export class DriverProfile {
   @Column()
   vehicle_type: string; // BIKE or CAR
 
-  @Column({ nullable: true })
+  @Column('varchar', { length: 50, nullable: true })
   color: string;
+
+  @Column('decimal', { precision: 3, scale: 2, default: 5.0 })
+  average_rating: number;
 
   @CreateDateColumn()
   created_at: Date;

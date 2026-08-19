@@ -114,3 +114,10 @@
   - Nếu `payment_method = CASH`, tài xế đã cầm đủ tiền => Sàn phải trừ tiền phí từ ví (có thể làm ví âm tạm thời).
   - Nếu `payment_method = CREDIT_CARD`, tài xế không nhận được tiền mặt => Sàn phải cộng 100% doanh thu chuyến đi vào ví tài xế.
   - Driver Location matching query PHẢI dùng `INNER JOIN` với `DriverWallet` để check `status = ACTIVE` và `balance >= MIN_WALLET_BALANCE`.
+
+## Phase 10: Driver Monitoring & Priority Matching - [COMPLETED]
+- **Tính năng**:
+  - `[x]` Entity `Order`: Thêm `estimated_duration` lưu thời gian cuốc xe dự kiến.
+  - `[x]` Entity `DriverProfile`: Thêm `average_rating`.
+  - `[x]` Auto-Cancel SLA: Viết Cronjob quét mỗi 30s. Nếu cuốc xe ở trạng thái `ACCEPTED` quá `estimated_duration + 5 phút` mà chưa di chuyển -> Tự động `CANCELLED`, phạt tài xế (Khóa ví `BLOCKED`) và giải phóng tài xế.
+  - `[x]` Priority Matching: Thay đổi logic chia cuốc, tự động tính lại `average_rating` sau khi khách Review. Thuật toán quét tài xế loại trừ các tài xế có `average_rating < 3.5`, đồng thời sắp xếp ưu tiên nổ cuốc theo công thức `Khoảng cách / Rating^2` (Rating càng cao càng dễ nổ cuốc).

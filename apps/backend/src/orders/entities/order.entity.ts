@@ -100,6 +100,9 @@ export class Order {
   })
   payment_status: PaymentStatus;
 
+  @Column('int', { default: 0 })
+  estimated_duration: number; // in minutes
+
   @CreateDateColumn()
   created_at: Date;
 

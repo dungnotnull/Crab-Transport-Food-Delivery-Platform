@@ -14,6 +14,7 @@ import { Role } from '../users/entities/user.entity';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { CouponsService } from '../coupons/coupons.service';
 import { WalletsService } from '../wallets/wallets.service';
+import { WalletStatus } from '../wallets/entities/driver-wallet.entity';
 
 @Injectable()
 export class OrdersService {
@@ -105,6 +106,7 @@ export class OrdersService {
         total_fare: finalPricing.totalFare,
         payment_method: paymentMethod || PaymentMethod.CASH,
         payment_status: PaymentStatus.PENDING,
+        estimated_duration: Math.ceil(route.duration / 60),
       });
 
       const savedOrder = await transactionalEntityManager.save(order);
@@ -140,11 +142,61 @@ export class OrdersService {
         this.trackingGateway.server.to(`order_${order.id}`).emit('order:status_changed', {
           orderId: order.id,
           status: OrderStatus.CANCELLED,
-          timestamp: new Date().toISOString(),
+          reason: 'TIMEOUT',
         });
       }
     }
   }
+
+  @Cron('*/30 * * * * *') // Run every 30 seconds
+  async handleStaleAcceptedOrders() {
+    this.logger.debug('Running cronjob: handleStaleAcceptedOrders (SLA Check)');
+    
+    const acceptedOrders = await this.ordersRepository.find({
+      where: {
+        status: OrderStatus.ACCEPTED,
+      },
+      relations: { driver: true },
+    });
+
+    for (const order of acceptedOrders) {
+      // SLA = estimated_duration + 5 minutes
+      const slaMinutes = order.estimated_duration + 5;
+      const slaTimeLimit = new Date(order.updated_at.getTime() + slaMinutes * 60 * 1000);
+      
+      if (new Date() > slaTimeLimit) {
+        this.logger.warn(`Order ${order.id} SLA exceeded by driver ${order.driver_id}. Cancelling...`);
+        
+        // Block the driver's wallet as a penalty
+        if (order.driver_id) {
+          try {
+            await this.walletsService.updateWalletStatus(order.driver_id, WalletStatus.BLOCKED);
+            this.logger.log(`Driver ${order.driver_id} wallet BLOCKED due to SLA violation`);
+          } catch (e) {
+            this.logger.error(`Failed to block wallet for driver ${order.driver_id}: ${e.message}`);
+          }
+          
+          // Free up driver
+          const driverLoc = await this.ordersRepository.manager.findOne(DriverLocation, { where: { user_id: order.driver_id } });
+          if (driverLoc) {
+            driverLoc.active_order_id = null;
+            await this.ordersRepository.manager.save(driverLoc);
+          }
+        }
+
+        order.status = OrderStatus.CANCELLED;
+        order.driver_id = null;
+        await this.ordersRepository.save(order);
+        
+        this.trackingGateway.server.to(`order_${order.id}`).emit('order:status_changed', {
+          orderId: order.id,
+          status: OrderStatus.CANCELLED,
+          reason: 'DRIVER_NO_SHOW_SLA_VIOLATION',
+        });
+      }
+    }
+  }
+
 
   validateStateTransition(current: OrderStatus, next: OrderStatus): boolean {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -291,7 +343,26 @@ export class OrdersService {
       feedback,
     });
 
-    return this.reviewsRepository.save(review);
+    const savedReview = await this.reviewsRepository.save(review);
+    
+    // Calculate new average rating
+    const result = await this.reviewsRepository
+      .createQueryBuilder('review')
+      .select('AVG(review.rating)', 'average_rating')
+      .where('review.driver_id = :driverId', { driverId: order.driver_id })
+      .getRawOne();
+      
+    const newAverage = result.average_rating ? parseFloat(result.average_rating) : rating;
+    
+    // Update DriverProfile
+    await this.ordersRepository.manager
+      .createQueryBuilder()
+      .update('driver_profiles')
+      .set({ average_rating: newAverage })
+      .where('user_id = :driverId', { driverId: order.driver_id })
+      .execute();
+      
+    return savedReview;
   }
 
   async updateStatus(orderId: string, driverId: string, newStatus: OrderStatus): Promise<Order> {

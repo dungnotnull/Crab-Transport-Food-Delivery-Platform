@@ -49,16 +49,18 @@ export class DriversService {
     return this.driverLocationRepo
       .createQueryBuilder('driverLocation')
       .innerJoin('driver_wallets', 'wallet', 'wallet.driver_id = driverLocation.user_id')
+      .innerJoin('driver_profiles', 'profile', 'profile.user_id = driverLocation.user_id')
       .where('driverLocation.is_online = :isOnline', { isOnline: true })
       .andWhere('driverLocation.active_order_id IS NULL')
       .andWhere('wallet.status = :status', { status: 'ACTIVE' })
       .andWhere('wallet.balance >= :minBalance', { minBalance })
+      .andWhere('profile.average_rating >= :minRating', { minRating: 3.5 })
       .andWhere(
         'ST_DWithin(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography, :radius)',
         { origin: JSON.stringify(origin), radius: radiusInMeters }
       )
       .orderBy(
-        'ST_Distance(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography)'
+        'ST_Distance(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography) / POWER(profile.average_rating, 2)'
       )
       .limit(limit)
       .getMany();
