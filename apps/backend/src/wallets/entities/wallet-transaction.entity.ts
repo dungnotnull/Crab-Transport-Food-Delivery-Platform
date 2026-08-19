@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { DriverWallet } from './driver-wallet.entity';
-import { Order } from '../../orders/entities/order.entity';
+import { Trip } from '../../trips/entities/trip.entity';
 
 export enum TransactionType {
   DEPOSIT = 'DEPOSIT', // Nạp tiền
@@ -22,11 +22,11 @@ export class WalletTransaction {
   wallet: DriverWallet;
 
   @Column('uuid', { nullable: true })
-  order_id: string | null;
+  trip_id: string | null;
 
-  @ManyToOne(() => Order, { nullable: true })
-  @JoinColumn({ name: 'order_id' })
-  order: Order;
+  @ManyToOne(() => Trip, { nullable: true })
+  @JoinColumn({ name: 'trip_id' })
+  trip: Trip;
 
   @Column({ type: 'enum', enum: TransactionType })
   transaction_type: TransactionType;

@@ -56,14 +56,14 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('driver:update_location')
   handleLocationUpdate(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { orderId: string; lat: number; lng: number },
+    @MessageBody() payload: { tripId: string; lat: number; lng: number },
   ) {
     const user = client.data.user;
     if (!user || user.role !== 'DRIVER') return;
 
-    // 1. Instantly broadcast to customer viewing the order
-    if (payload.orderId) {
-      this.server.to(`order_${payload.orderId}`).emit('order:location_stream', {
+    // 1. Instantly broadcast to customer viewing the trip
+    if (payload.tripId) {
+      this.server.to(`trip_${payload.tripId}`).emit('trip:location_stream', {
         driverId: user.sub,
         lat: payload.lat,
         lng: payload.lng,
@@ -79,7 +79,7 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   emitOrderOffer(driverId: string, orderData: any) {
     // Assuming driver's user.sub room or specific socket mapping. 
     // For simplicity, we can broadcast to a driver specific room:
-    this.server.to(`driver_${driverId}`).emit('driver:order_offer', orderData);
+    this.server.to(`driver_${driverId}`).emit('driver:trip_offer', orderData);
   }
 
   @Cron('*/10 * * * * *')

@@ -9,7 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RoutingModule } from './routing/routing.module';
 import { PricingModule } from './pricing/pricing.module';
-import { OrdersModule } from './orders/orders.module';
+import { OrdersModule } from './trips/trips.module';
 import { DriversModule } from './drivers/drivers.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { SimulatorModule } from './simulator/simulator.module';

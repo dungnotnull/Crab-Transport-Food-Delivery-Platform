@@ -23,8 +23,8 @@ export class CouponsService {
       throw new BadRequestException('Coupon usage limit reached');
     }
 
-    if (originalFare < coupon.min_order_value) {
-      throw new BadRequestException(`Order must be at least ${coupon.min_order_value} to use this coupon`);
+    if (originalFare < coupon.min_trip_value) {
+      throw new BadRequestException(`Trip must be at least ${coupon.min_trip_value} to use this coupon`);
     }
 
     let discountAmount = 0;

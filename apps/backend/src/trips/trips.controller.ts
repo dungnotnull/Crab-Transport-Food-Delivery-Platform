@@ -1,12 +1,12 @@
 import { Controller, Post, Patch, Body, UseGuards, Req, Param } from '@nestjs/common';
-import { OrdersService } from './orders.service';
+import { OrdersService } from './trips.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/entities/user.entity';
-import { BookOrderDto } from './dto/book-order.dto';
+import { BookOrderDto } from './dto/book-trip.dto';
 
-@Controller('api/v1/orders')
+@Controller('api/v1/trips')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
@@ -26,39 +26,39 @@ export class OrdersController {
 
   @Post(':id/accept')
   @Roles(Role.DRIVER)
-  async acceptOrder(@Req() req: any, @Param('id') orderId: string) {
+  async acceptOrder(@Req() req: any, @Param('id') tripId: string) {
     const driverId = req.user.id;
-    return this.ordersService.acceptOrder(orderId, driverId);
+    return this.ordersService.acceptOrder(tripId, driverId);
   }
 
   @Post(':id/cancel')
   @Roles(Role.CUSTOMER, Role.DRIVER)
-  async cancelOrder(@Req() req: any, @Param('id') orderId: string) {
+  async cancelOrder(@Req() req: any, @Param('id') tripId: string) {
     const userId = req.user.id;
     const role = req.user.role;
-    return this.ordersService.cancelOrder(orderId, userId, role);
+    return this.ordersService.cancelOrder(tripId, userId, role);
   }
 
   @Post(':id/rating')
   @Roles(Role.CUSTOMER)
   async submitReview(
     @Req() req: any,
-    @Param('id') orderId: string,
+    @Param('id') tripId: string,
     @Body('rating') rating: number,
     @Body('feedback') feedback: string,
   ) {
     const customerId = req.user.id;
-    return this.ordersService.submitReview(orderId, customerId, rating, feedback);
+    return this.ordersService.submitReview(tripId, customerId, rating, feedback);
   }
 
   @Patch(':id/status')
   @Roles(Role.DRIVER)
   async updateStatus(
     @Req() req: any,
-    @Param('id') orderId: string,
+    @Param('id') tripId: string,
     @Body('status') status: any, // should be OrderStatus enum
   ) {
     const driverId = req.user.id;
-    return this.ordersService.updateStatus(orderId, driverId, status);
+    return this.ordersService.updateStatus(tripId, driverId, status);
   }
 }

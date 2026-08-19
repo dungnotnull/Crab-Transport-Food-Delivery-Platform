@@ -6,7 +6,7 @@ export class Review {
   id: string;
 
   @Column('uuid')
-  order_id: string;
+  trip_id: string;
 
   @Column('uuid')
   customer_id: string;

@@ -20,7 +20,7 @@ export class Coupon {
   discount_value: number;
 
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
-  min_order_value: number;
+  min_trip_value: number;
 
   @Column('decimal', { precision: 10, scale: 2, nullable: true })
   max_discount: number | null;

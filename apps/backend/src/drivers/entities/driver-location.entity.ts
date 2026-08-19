@@ -24,7 +24,7 @@ export class DriverLocation {
   is_online: boolean;
 
   @Column('uuid', { nullable: true })
-  active_order_id: string | null;
+  active_trip_id: string | null;
 
   @UpdateDateColumn()
   last_updated: Date;

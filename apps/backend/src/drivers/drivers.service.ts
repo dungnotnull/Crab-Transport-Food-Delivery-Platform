@@ -51,7 +51,7 @@ export class DriversService {
       .innerJoin('driver_wallets', 'wallet', 'wallet.driver_id = driverLocation.user_id')
       .innerJoin('driver_profiles', 'profile', 'profile.user_id = driverLocation.user_id')
       .where('driverLocation.is_online = :isOnline', { isOnline: true })
-      .andWhere('driverLocation.active_order_id IS NULL')
+      .andWhere('driverLocation.active_trip_id IS NULL')
       .andWhere('wallet.status = :status', { status: 'ACTIVE' })
       .andWhere('wallet.balance >= :minBalance', { minBalance })
       .andWhere('profile.average_rating >= :minRating', { minRating: 3.5 })

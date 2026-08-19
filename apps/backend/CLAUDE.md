@@ -7,7 +7,7 @@
 
 ## 2. Kiến trúc & Design Patterns
 - **Kiến trúc**: Modular Monolith / **Clean Architecture / Domain-Driven Design (DDD)**.
-- **Quy tắc chia Module (apps/backend/src/modules)**: Chia chuẩn theo README: `auth`, `orders`, `drivers`, `tracking`, `routing`, `simulator`.
+- **Quy tắc chia Module (apps/backend/src/modules)**: Chia chuẩn theo README: `auth`, `trips`, `drivers`, `tracking`, `routing`, `simulator`.
 - **Dependency Rule**: Các module KHÔNG gọi service của nhau một cách chằng chịt (tránh circular dependency). Nếu module A cần module B xử lý việc sau khi A xong, ưu tiên dùng **`@nestjs/event-emitter`** để decouple logic.
 
 ## 3. Database (TypeORM + Postgres + PostGIS)
@@ -21,8 +21,7 @@
 - Logic State Machine NẰM TRONG `OrderService`. Trạng thái dựa đúng theo thiết kế README:
   - Khởi tạo: `FINDING_DRIVER`
   - Đã có tài xế: `ACCEPTED`
-  - Ride-hailing: `ACCEPTED` -> `ARRIVED_AT_PICKUP` -> `IN_TRANSIT`
-  - Food Delivery: `ACCEPTED` -> `ARRIVED_AT_RESTAURANT` -> `WAITING_FOR_FOOD` (10s delay simulator) -> `IN_TRANSIT`
+  - Ride-Hailing: `ACCEPTED` -> `ARRIVED_AT_PICKUP` -> `IN_TRANSIT`
   - Kết thúc: `ARRIVED_AT_DESTINATION` -> `COMPLETED`
   - Hủy: `CANCELLED`
 

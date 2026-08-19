@@ -37,7 +37,7 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   ```
 
 ### 2.2. Xem trước cước phí và bản đồ đường đi (Customer)
-- **POST** `/api/v1/orders/preview`
+- **POST** `/api/v1/trips/preview`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
@@ -49,7 +49,7 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 - **Response**: Trả về `distance`, `duration`, `fare` và đặc biệt là `geometry` (mảng tọa độ geojson để Frontend dùng thư viện Leaflet vẽ polyline đường đi thực tế).
 
 ### 2.2. Đặt cuốc (Customer)
-- **POST** `/api/v1/orders/book`
+- **POST** `/api/v1/trips/book`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
@@ -63,26 +63,26 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   ```
 
 ### 2.2. Tài xế nhận cuốc (Driver)
-- **POST** `/api/v1/orders/:id/accept`
+- **POST** `/api/v1/trips/:id/accept`
 - **Headers**: `Authorization: Bearer <token>`
 
 ### 2.3. Hủy cuốc (Customer/Driver)
-- **POST** `/api/v1/orders/:id/cancel`
+- **POST** `/api/v1/trips/:id/cancel`
 - **Headers**: `Authorization: Bearer <token>`
 
 ### 2.4. Cập nhật trạng thái cuốc (Driver)
-- **PATCH** `/api/v1/orders/:id/status`
+- **PATCH** `/api/v1/trips/:id/status`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
   {
-    "status": "ARRIVED_AT_RESTAURANT" 
-    // Các giá trị: ARRIVED_AT_PICKUP, IN_TRANSIT, ARRIVED_AT_RESTAURANT, WAITING_FOR_FOOD, ARRIVED_AT_DESTINATION, COMPLETED
+    "status": "ARRIVED_AT_PICKUP" 
+    // Các giá trị: ARRIVED_AT_PICKUP, IN_TRANSIT, ARRIVED_AT_DESTINATION, COMPLETED
   }
   ```
 
 ### 2.5. Đánh giá chuyến đi (Customer)
-- **POST** `/api/v1/orders/:id/rating`
+- **POST** `/api/v1/trips/:id/rating`
 - **Headers**: `Authorization: Bearer <token>`
 - **Payload**:
   ```json
@@ -97,8 +97,7 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
 - **Payload**:
   ```json
   {
-    "orderId": "ORD-123456",
-    "simulateFoodWait": true
+    "tripId": "ORD-123456"
   }
   ```
 
@@ -153,8 +152,8 @@ Endpoint Gateway: `ws://localhost:3000` (Handshake Auth với token `Bearer`).
 
 | Event Name | Direction | Payload | Description |
 | --- | --- | --- | --- |
-| `join_room` | Client ➔ Server | `order_ORD-123456` | Khách hàng join vào room của Order để nghe cập nhật |
-| `driver:update_location` | Driver ➔ Server | `{ orderId: string, lat: number, lng: number }` | Tài xế báo vị trí liên tục |
-| `order:location_stream` | Server ➔ Customer | `{ driverId: string, lat: number, lng: number, timestamp: string }` | Báo vị trí tài xế cho Customer theo thời gian thực |
-| `order:status_changed` | Server ➔ Both | `{ orderId: string, status: OrderStatus, reason?: string, timestamp: string }` | Thông báo tự động khi trạng thái thay đổi (có thể kèm `reason` nếu bị hủy bởi hệ thống SLA Timeout) |
-| `driver:order_offer` | Server ➔ Driver | `{ orderId: string, pickup: Point, dropoff: Point, fare: number, expiredAt: string }` | Hệ thống nổ cuốc cho tài xế |
+| `join_room` | Client ➔ Server | `trip_ORD-123456` | Khách hàng join vào room của Trip để nghe cập nhật |
+| `driver:update_location` | Driver ➔ Server | `{ tripId: string, lat: number, lng: number }` | Tài xế báo vị trí liên tục |
+| `trip:location_stream` | Server ➔ Customer | `{ driverId: string, lat: number, lng: number, timestamp: string }` | Báo vị trí tài xế cho Customer theo thời gian thực |
+| `trip:status_changed` | Server ➔ Both | `{ tripId: string, status: OrderStatus, reason?: string, timestamp: string }` | Thông báo tự động khi trạng thái thay đổi (có thể kèm `reason` nếu bị hủy bởi hệ thống SLA Timeout) |
+| `driver:trip_offer` | Server ➔ Driver | `{ tripId: string, pickup: Point, dropoff: Point, fare: number, expiredAt: string }` | Hệ thống nổ cuốc cho tài xế |

@@ -6,8 +6,6 @@ export enum OrderStatus {
   FINDING_DRIVER = 'FINDING_DRIVER',
   ACCEPTED = 'ACCEPTED',
   ARRIVED_AT_PICKUP = 'ARRIVED_AT_PICKUP',
-  ARRIVED_AT_RESTAURANT = 'ARRIVED_AT_RESTAURANT',
-  WAITING_FOR_FOOD = 'WAITING_FOR_FOOD',
   IN_TRANSIT = 'IN_TRANSIT',
   ARRIVED_AT_DESTINATION = 'ARRIVED_AT_DESTINATION',
   COMPLETED = 'COMPLETED',
@@ -26,8 +24,8 @@ export enum PaymentStatus {
   FAILED = 'FAILED',
 }
 
-@Entity('orders')
-export class Order {
+@Entity('trips')
+export class Trip {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

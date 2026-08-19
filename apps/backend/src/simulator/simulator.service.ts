@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { RoutingService } from '../routing/routing.service';
 import { TrackingGateway } from '../tracking/tracking.gateway';
-import { OrdersService } from '../orders/orders.service';
-import { OrderStatus } from '../orders/entities/order.entity';
+import { OrdersService } from '../trips/trips.service';
+import { OrderStatus } from '../trips/entities/trip.entity';
 import { DriversService } from '../drivers/drivers.service';
 import * as turf from '@turf/turf';
 
@@ -17,47 +17,43 @@ export class SimulatorService {
     private driversService: DriversService,
   ) {}
 
-  async simulateTrip(orderId: string, simulateFoodWait: boolean = true) {
-    const order = await this.ordersService['ordersRepository'].findOne({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Order not found');
-    if (!order.driver_id) throw new BadRequestException('Order does not have a driver assigned');
+  async simulateTrip(tripId: string) {
+    const trip = await this.ordersService['ordersRepository'].findOne({ where: { id: tripId } });
+    if (!trip) throw new NotFoundException('Trip not found');
+    if (!trip.driver_id) throw new BadRequestException('Trip does not have a driver assigned');
 
-    const driverLoc = await this.driversService['locationsRepository'].findOne({ where: { user_id: order.driver_id } });
+    const driverLoc = await this.driversService['locationsRepository'].findOne({ where: { user_id: trip.driver_id } });
     if (!driverLoc) throw new NotFoundException('Driver location not found');
 
     const driverStart = driverLoc.current_location.coordinates; // [lng, lat]
     const startPoint = { lat: driverStart[1], lng: driverStart[0] };
-    const pickupPoint = { lat: order.pickup_location.coordinates[1], lng: order.pickup_location.coordinates[0] };
-    const dropoffPoint = { lat: order.dropoff_location.coordinates[1], lng: order.dropoff_location.coordinates[0] };
+    const pickupPoint = { lat: trip.pickup_location.coordinates[1], lng: trip.pickup_location.coordinates[0] };
+    const dropoffPoint = { lat: trip.dropoff_location.coordinates[1], lng: trip.dropoff_location.coordinates[0] };
 
-    this.logger.log(`[Simulator] Starting simulation for Order ${orderId}`);
+    this.logger.log(`[Simulator] Starting simulation for Trip ${tripId}`);
 
     // LEG 1: Driver -> Pickup
     this.logger.log(`[Simulator] Leg 1: Driving to pickup...`);
-    await this.drive(order.driver_id, orderId, startPoint, pickupPoint);
+    await this.drive(trip.driver_id, tripId, startPoint, pickupPoint);
     
-    // ARRIVED AT RESTAURANT
-    await this.ordersService.updateStatus(orderId, order.driver_id, OrderStatus.ARRIVED_AT_RESTAURANT);
+    // ARRIVED AT PICKUP
+    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.ARRIVED_AT_PICKUP);
 
-    if (simulateFoodWait) {
-      this.logger.log(`[Simulator] Waiting 10 seconds for food...`);
-      await this.ordersService.updateStatus(orderId, order.driver_id, OrderStatus.WAITING_FOR_FOOD);
-      await this.delay(10000); // Wait 10s
-    }
+    await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    // LEG 2: Pickup -> Dropoff
-    this.logger.log(`[Simulator] Leg 2: Driving to dropoff...`);
-    await this.ordersService.updateStatus(orderId, order.driver_id, OrderStatus.IN_TRANSIT);
-    await this.drive(order.driver_id, orderId, pickupPoint, dropoffPoint);
+    // IN TRANSIT
+    this.logger.log(`[Simulator] Trip ${tripId} is now IN_TRANSIT`);
+    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.IN_TRANSIT);
+    await this.drive(trip.driver_id, tripId, pickupPoint, dropoffPoint);
 
     // ARRIVED AT DESTINATION & COMPLETED
-    await this.ordersService.updateStatus(orderId, order.driver_id, OrderStatus.ARRIVED_AT_DESTINATION);
+    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.ARRIVED_AT_DESTINATION);
     await this.delay(2000); // 2s pause before completing
-    await this.ordersService.updateStatus(orderId, order.driver_id, OrderStatus.COMPLETED);
-    this.logger.log(`[Simulator] Simulation finished for Order ${orderId}`);
+    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.COMPLETED);
+    this.logger.log(`[Simulator] Simulation finished for Trip ${tripId}`);
   }
 
-  private async drive(driverId: string, orderId: string, start: {lat: number, lng: number}, end: {lat: number, lng: number}): Promise<void> {
+  private async drive(driverId: string, tripId: string, start: {lat: number, lng: number}, end: {lat: number, lng: number}): Promise<void> {
     const route = await this.routingService.getRoute(start, end);
     const line = turf.lineString(route.geometry.coordinates);
     const totalLength = turf.length(line, { units: 'meters' });
@@ -72,11 +68,11 @@ export class SimulatorService {
         if (currentDistance >= totalLength) {
           clearInterval(interval);
           const endPoint = turf.along(line, totalLength, { units: 'meters' });
-          this.emitLocation(driverId, orderId, endPoint.geometry.coordinates);
+          this.emitLocation(driverId, tripId, endPoint.geometry.coordinates);
           resolve();
         } else {
           const currentPoint = turf.along(line, currentDistance, { units: 'meters' });
-          this.emitLocation(driverId, orderId, currentPoint.geometry.coordinates);
+          this.emitLocation(driverId, tripId, currentPoint.geometry.coordinates);
         }
       }, 1000);
     });
@@ -86,14 +82,14 @@ export class SimulatorService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  private emitLocation(driverId: string, orderId: string, coordinates: number[]) {
+  private emitLocation(driverId: string, tripId: string, coordinates: number[]) {
     const [lng, lat] = coordinates;
     // We can simulate the driver updating their location via the gateway
     // In a real scenario, the driver app emits this to the Gateway.
     // Since we are mocking, we can just call a method on the gateway directly
     // or emit it to the room.
     
-    this.trackingGateway.server.to(`order_${orderId}`).emit('order:location_stream', {
+    this.trackingGateway.server.to(`trip_${tripId}`).emit('trip:location_stream', {
       driverId,
       lat,
       lng,

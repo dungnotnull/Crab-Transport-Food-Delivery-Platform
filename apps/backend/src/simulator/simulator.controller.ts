@@ -6,11 +6,10 @@ export class SimulatorController {
   constructor(private readonly simulatorService: SimulatorService) {}
 
   @Post('simulate-trip')
-  async startSimulation(
-    @Body('orderId') orderId: string,
-    @Body('simulateFoodWait') simulateFoodWait: boolean = true,
+  async simulateTrip(
+    @Body('tripId') tripId: string,
   ) {
-    this.simulatorService.simulateTrip(orderId, simulateFoodWait);
-    return { message: '2-Leg Simulation started in the background.' };
+    this.simulatorService.simulateTrip(tripId);
+    return { message: 'Simulation started in background' };
   }
 }

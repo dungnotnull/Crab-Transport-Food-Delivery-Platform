@@ -43,7 +43,7 @@ export class WalletsService {
 
   async processTripRevenue(
     driverId: string,
-    orderId: string,
+    tripId: string,
     driverRevenue: number,
     customerPaid: number,
     manager: EntityManager,
@@ -83,11 +83,11 @@ export class WalletsService {
 
     const transaction = txRepo.create({
       driver_id: driverId,
-      order_id: orderId,
+      trip_id: tripId,
       transaction_type: txType,
       amount: amountChanged,
       balance_after: wallet.balance,
-      description: `Thu nhập/Khấu trừ từ chuyến đi ${orderId}`,
+      description: `Thu nhập/Khấu trừ từ chuyến đi ${tripId}`,
     });
 
     await txRepo.save(transaction);

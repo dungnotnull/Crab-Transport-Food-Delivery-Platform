@@ -1,5 +1,5 @@
 
-# 🛵 Crab — Open-Source Transport & Food Delivery Platform
+# 🛵 Crab — Open-Source Transport Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![NestJS](https://img.shields.io/badge/NestJS-v10.x-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
@@ -8,7 +8,7 @@
 [![Socket.io](https://img.shields.io/badge/Socket.io-v4.x-010101?logo=socketdotio&logoColor=white)](https://socket.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
-> **Crab** is a full-stack, open-source transport and food delivery platform inspired by Grab (Bike/Car + Food Delivery). Designed to run **100% locally and free** during development with zero paid third-party API dependencies (Google Maps, Mapbox, Twilio).
+> **Crab** is a full-stack, open-source transport platform inspired by Grab. Designed to run **100% locally and free** during development with zero paid third-party API dependencies (Google Maps, Mapbox, Twilio).
 
 ---
 
@@ -45,7 +45,7 @@ Crab eliminates paid map and backend APIs by integrating open-source geospatial 
 
 ## 🌟 Core Features
 
-### 1. 📍 Booking & Dynamic Pricing (Ride & Food)
+### 1. 📍 Booking & Dynamic Pricing
 - Interactive map-based pickup & dropoff selection via **Leaflet.js**.
 - Real-world route calculation via **OSRM API**.
 - Dynamic fare calculation formula:
@@ -55,8 +55,8 @@ Crab eliminates paid map and backend APIs by integrating open-source geospatial 
 - PostGIS spatial indexing (`ST_DWithin` + `ST_Distance`) with `GIST` indexes to match available online drivers within radius $R$ in sub-millisecond response times.
 - Queue-based & top-$K$ broadcast matching algorithms.
 
-### 3. 🔄 Robust Order State Machine
-- Strict transitions from order creation to final settlement, preventing race conditions.
+### 3. 🔄 Robust Trip State Machine
+- Strict transitions from trip creation to final settlement, preventing race conditions.
 
 ### 4. 🛰️ Real-Time GPS Tracking
 - High-frequency GPS telemetry streaming via WebSockets.
@@ -64,38 +64,29 @@ Crab eliminates paid map and backend APIs by integrating open-source geospatial 
 
 ### 5. 🤖 Automated Driver Simulator (Dev/Test Tool)
 - Self-running background mock worker that:
-  1. Accepts matched orders.
-  2. Navigates to restaurant/pickup point.
-  3. Simulates a 10-second food prep wait time.
+  1. Accepts matched trips.
+  2. Navigates to pickup point.
   4. Streams realistic GPS coordinates along the actual OSRM path to the destination.
 
 ---
 
 ## 🔄 System Architecture & State Machine
 
-### Order Lifecycle State Machine
+### Trip Lifecycle State Machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> FINDING_DRIVER: Customer places order
+    [*] --> FINDING_DRIVER: Customer places trip
     FINDING_DRIVER --> ACCEPTED: Driver accepts
     FINDING_DRIVER --> CANCELLED: No driver found / User cancels
 
-    state "Transport (Ride-Hailing)" as Ride {
+    state "Transit" as Transit {
         ACCEPTED --> ARRIVED_AT_PICKUP
-        ARRIVED_AT_PICKUP --> IN_TRANSIT: Customer onboard
+        ARRIVED_AT_PICKUP --> IN_TRANSIT: Customer picked up
+        IN_TRANSIT --> ARRIVED_AT_DESTINATION
+        ARRIVED_AT_DESTINATION --> COMPLETED
     }
-
-    state "Food Delivery" as Food {
-        ACCEPTED --> ARRIVED_AT_RESTAURANT
-        ARRIVED_AT_RESTAURANT --> WAITING_FOR_FOOD: 10s kitchen prep simulation
-        WAITING_FOR_FOOD --> IN_TRANSIT: Food picked up
-    }
-
-    IN_TRANSIT --> ARRIVED_AT_DESTINATION
-    ARRIVED_AT_DESTINATION --> COMPLETED: Customer confirms & pays
     COMPLETED --> [*]
-
 ```
 
 ---
@@ -119,7 +110,7 @@ SELECT
 FROM drivers d
 WHERE 
     d.is_online = true 
-    AND d.active_order_id IS NULL
+    AND d.active_trip_id IS NULL
     AND ST_DWithin(
         d.current_location, 
         ST_SetSRID(ST_MakePoint(:pickupLng, :pickupLat), 4326)::geography, 
@@ -143,7 +134,7 @@ crab/
 │   │   ├── src/
 │   │   │   ├── modules/
 │   │   │   │   ├── auth/           # JWT authentication & RBAC
-│   │   │   │   ├── orders/         # Order state machine & lifecycle
+│   │   │   │   ├── trips/         # Trip state machine & lifecycle
 │   │   │   │   ├── drivers/        # PostGIS spatial matching
 │   │   │   │   ├── tracking/       # Socket.io GPS gateway
 │   │   │   │   ├── routing/        # OSRM client service
@@ -203,9 +194,9 @@ docker-compose up -d --build
 | Event Name | Direction | Payload | Description |
 | --- | --- | --- | --- |
 | `driver:update_location` | Driver ➔ Server | `{ lat: number, lng: number, heading: number }` | Driver telemetry broadcast |
-| `order:location_stream` | Server ➔ Customer | `{ orderId: string, lat: number, lng: number, heading: number }` | Relays driver position to customer |
-| `order:status_changed` | Server ➔ Both | `{ orderId: string, status: OrderStatus, timestamp: string }` | State machine transition notification |
-| `driver:order_offer` | Server ➔ Driver | `{ orderId: string, pickup: Point, dropoff: Point, fare: number }` | Incoming order dispatch alert |
+| `trip:location_stream` | Server ➔ Customer | `{ tripId: string, lat: number, lng: number, heading: number }` | Relays driver position to customer |
+| `trip:status_changed` | Server ➔ Both | `{ tripId: string, status: OrderStatus, timestamp: string }` | State machine transition notification |
+| `driver:trip_offer` | Server ➔ Driver | `{ tripId: string, pickup: Point, dropoff: Point, fare: number }` | Incoming trip dispatch alert |
 
 ---
 
@@ -218,9 +209,8 @@ To test full end-to-end trip flows without moving physically:
 curl -X POST http://localhost:4000/api/v1/simulator/simulate-trip \
   -H "Content-Type: application/json" \
   -d '{
-    "orderId": "ORD-123456",
-    "speedMultiplier": 2.0,
-    "simulateFoodWait": true
+    "tripId": "ORD-123456",
+    "speedMultiplier": 2.0
   }'
 
 ```

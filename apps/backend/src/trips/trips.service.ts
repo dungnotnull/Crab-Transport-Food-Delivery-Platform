@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
-import { Order, OrderStatus, PaymentMethod, PaymentStatus } from './entities/order.entity';
+import { Trip, OrderStatus, PaymentMethod, PaymentStatus } from './entities/trip.entity';
 import { Review } from './entities/review.entity';
-import { BookOrderDto } from './dto/book-order.dto';
+import { BookOrderDto } from './dto/book-trip.dto';
 import { RoutingService } from '../routing/routing.service';
 import { PricingService } from '../pricing/pricing.service';
 import { DriversService } from '../drivers/drivers.service';
@@ -21,8 +21,8 @@ export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
-    @InjectRepository(Order)
-    private ordersRepository: Repository<Order>,
+    @InjectRepository(Trip)
+    private ordersRepository: Repository<Trip>,
     @InjectRepository(Review)
     private reviewsRepository: Repository<Review>,
     private routingService: RoutingService,
@@ -58,7 +58,7 @@ export class OrdersService {
     };
   }
 
-  async bookOrder(customerId: string, bookOrderDto: BookOrderDto): Promise<Order> {
+  async bookOrder(customerId: string, bookOrderDto: BookOrderDto): Promise<Trip> {
     const { pickup, dropoff, coupon_code, paymentMethod } = bookOrderDto;
 
     const route = await this.routingService.getRoute(pickup, dropoff);
@@ -93,7 +93,7 @@ export class OrdersService {
         finalPricing = await this.pricingService.calculateFare(route.distance, 'STANDARD', couponResult.discountAmount);
       }
 
-      const order = transactionalEntityManager.create(Order, {
+      const trip = transactionalEntityManager.create(Trip, {
         customer_id: customerId,
         pickup_location: { type: 'Point', coordinates: [pickup.lng, pickup.lat] },
         dropoff_location: { type: 'Point', coordinates: [dropoff.lng, dropoff.lat] },
@@ -109,10 +109,10 @@ export class OrdersService {
         estimated_duration: Math.ceil(route.duration / 60),
       });
 
-      const savedOrder = await transactionalEntityManager.save(order);
+      const savedOrder = await transactionalEntityManager.save(trip);
 
-      this.eventEmitter.emit('order.created', savedOrder);
-      this.logger.log(`Order ${savedOrder.id} booked. Fare: ${savedOrder.total_fare}`);
+      this.eventEmitter.emit('trip.created', savedOrder);
+      this.logger.log(`Trip ${savedOrder.id} booked. Fare: ${savedOrder.total_fare}`);
 
       return savedOrder;
     });
@@ -122,7 +122,7 @@ export class OrdersService {
   async handleTimeoutOrders() {
     this.logger.debug('Running cronjob: handleTimeoutOrders');
     
-    // Find orders in FINDING_DRIVER status older than 5 minutes
+    // Find trips in FINDING_DRIVER status older than 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     
     const staleOrders = await this.ordersRepository.find({
@@ -133,14 +133,14 @@ export class OrdersService {
     });
 
     if (staleOrders.length > 0) {
-      for (const order of staleOrders) {
-        order.status = OrderStatus.CANCELLED;
-        await this.ordersRepository.save(order);
-        this.logger.log(`Order ${order.id} automatically cancelled due to timeout`);
+      for (const trip of staleOrders) {
+        trip.status = OrderStatus.CANCELLED;
+        await this.ordersRepository.save(trip);
+        this.logger.log(`Trip ${trip.id} automatically cancelled due to timeout`);
         
         // Emit event to Frontend via Websocket
-        this.trackingGateway.server.to(`order_${order.id}`).emit('order:status_changed', {
-          orderId: order.id,
+        this.trackingGateway.server.to(`trip_${trip.id}`).emit('trip:status_changed', {
+          tripId: trip.id,
           status: OrderStatus.CANCELLED,
           reason: 'TIMEOUT',
         });
@@ -159,37 +159,37 @@ export class OrdersService {
       relations: { driver: true },
     });
 
-    for (const order of acceptedOrders) {
+    for (const trip of acceptedOrders) {
       // SLA = estimated_duration + 5 minutes
-      const slaMinutes = order.estimated_duration + 5;
-      const slaTimeLimit = new Date(order.updated_at.getTime() + slaMinutes * 60 * 1000);
+      const slaMinutes = trip.estimated_duration + 5;
+      const slaTimeLimit = new Date(trip.updated_at.getTime() + slaMinutes * 60 * 1000);
       
       if (new Date() > slaTimeLimit) {
-        this.logger.warn(`Order ${order.id} SLA exceeded by driver ${order.driver_id}. Cancelling...`);
+        this.logger.warn(`Trip ${trip.id} SLA exceeded by driver ${trip.driver_id}. Cancelling...`);
         
         // Block the driver's wallet as a penalty
-        if (order.driver_id) {
+        if (trip.driver_id) {
           try {
-            await this.walletsService.updateWalletStatus(order.driver_id, WalletStatus.BLOCKED);
-            this.logger.log(`Driver ${order.driver_id} wallet BLOCKED due to SLA violation`);
+            await this.walletsService.updateWalletStatus(trip.driver_id, WalletStatus.BLOCKED);
+            this.logger.log(`Driver ${trip.driver_id} wallet BLOCKED due to SLA violation`);
           } catch (e) {
-            this.logger.error(`Failed to block wallet for driver ${order.driver_id}: ${e.message}`);
+            this.logger.error(`Failed to block wallet for driver ${trip.driver_id}: ${e.message}`);
           }
           
           // Free up driver
-          const driverLoc = await this.ordersRepository.manager.findOne(DriverLocation, { where: { user_id: order.driver_id } });
+          const driverLoc = await this.ordersRepository.manager.findOne(DriverLocation, { where: { user_id: trip.driver_id } });
           if (driverLoc) {
-            driverLoc.active_order_id = null;
+            driverLoc.active_trip_id = null;
             await this.ordersRepository.manager.save(driverLoc);
           }
         }
 
-        order.status = OrderStatus.CANCELLED;
-        order.driver_id = null;
-        await this.ordersRepository.save(order);
+        trip.status = OrderStatus.CANCELLED;
+        trip.driver_id = null;
+        await this.ordersRepository.save(trip);
         
-        this.trackingGateway.server.to(`order_${order.id}`).emit('order:status_changed', {
-          orderId: order.id,
+        this.trackingGateway.server.to(`trip_${trip.id}`).emit('trip:status_changed', {
+          tripId: trip.id,
           status: OrderStatus.CANCELLED,
           reason: 'DRIVER_NO_SHOW_SLA_VIOLATION',
         });
@@ -201,10 +201,8 @@ export class OrdersService {
   validateStateTransition(current: OrderStatus, next: OrderStatus): boolean {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       [OrderStatus.FINDING_DRIVER]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
-      [OrderStatus.ACCEPTED]: [OrderStatus.ARRIVED_AT_PICKUP, OrderStatus.ARRIVED_AT_RESTAURANT, OrderStatus.CANCELLED],
+      [OrderStatus.ACCEPTED]: [OrderStatus.ARRIVED_AT_PICKUP, OrderStatus.CANCELLED],
       [OrderStatus.ARRIVED_AT_PICKUP]: [OrderStatus.IN_TRANSIT, OrderStatus.CANCELLED],
-      [OrderStatus.ARRIVED_AT_RESTAURANT]: [OrderStatus.WAITING_FOR_FOOD, OrderStatus.CANCELLED],
-      [OrderStatus.WAITING_FOR_FOOD]: [OrderStatus.IN_TRANSIT, OrderStatus.CANCELLED],
       [OrderStatus.IN_TRANSIT]: [OrderStatus.ARRIVED_AT_DESTINATION],
       [OrderStatus.ARRIVED_AT_DESTINATION]: [OrderStatus.COMPLETED],
       [OrderStatus.COMPLETED]: [],
@@ -214,131 +212,131 @@ export class OrdersService {
     return validTransitions[current]?.includes(next) ?? false;
   }
 
-  @OnEvent('order.created')
-  async handleOrderCreated(order: Order) {
-    this.logger.log(`Handling dispatch for order ${order.id}`);
-    const [lng, lat] = order.pickup_location.coordinates;
+  @OnEvent('trip.created')
+  async handleOrderCreated(trip: Trip) {
+    this.logger.log(`Handling dispatch for trip ${trip.id}`);
+    const [lng, lat] = trip.pickup_location.coordinates;
     const availableDrivers = await this.driversService.findAvailableDrivers(lng, lat, 3000, 5);
 
     if (availableDrivers.length === 0) {
-      this.logger.warn(`No available drivers found for order ${order.id}`);
+      this.logger.warn(`No available drivers found for trip ${trip.id}`);
       return;
     }
 
-    this.logger.log(`Found ${availableDrivers.length} drivers for order ${order.id}. Dispatching...`);
+    this.logger.log(`Found ${availableDrivers.length} drivers for trip ${trip.id}. Dispatching...`);
     
     // Broadcast via Socket.io to the drivers
     availableDrivers.forEach(driver => {
-      this.logger.debug(`Offer order ${order.id} to driver ${driver.user_id}`);
+      this.logger.debug(`Offer trip ${trip.id} to driver ${driver.user_id}`);
       this.trackingGateway.emitOrderOffer(driver.user_id, {
-        orderId: order.id,
-        pickup: order.pickup_location,
-        dropoff: order.dropoff_location,
-        fare: order.total_fare,
+        tripId: trip.id,
+        pickup: trip.pickup_location,
+        dropoff: trip.dropoff_location,
+        fare: trip.total_fare,
         expiredAt: new Date(Date.now() + 15 * 1000).toISOString(), // 15s TTL
       });
     });
   }
 
-  async acceptOrder(orderId: string, driverId: string): Promise<Order> {
+  async acceptOrder(tripId: string, driverId: string): Promise<Trip> {
     return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
-      const order = await transactionalEntityManager
-        .createQueryBuilder(Order, 'order')
+      const trip = await transactionalEntityManager
+        .createQueryBuilder(Trip, 'trip')
         .setLock('pessimistic_write')
-        .where('order.id = :id', { id: orderId })
+        .where('trip.id = :id', { id: tripId })
         .getOne();
 
-      if (!order) {
-        throw new NotFoundException('Order not found');
+      if (!trip) {
+        throw new NotFoundException('Trip not found');
       }
 
-      if (order.status !== OrderStatus.FINDING_DRIVER) {
-        throw new ConflictException('Order has already been accepted or cancelled');
+      if (trip.status !== OrderStatus.FINDING_DRIVER) {
+        throw new ConflictException('Trip has already been accepted or cancelled');
       }
 
       const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: driverId } });
-      if (driverLoc && driverLoc.active_order_id) {
-        throw new ConflictException('Driver is already on an active order');
+      if (driverLoc && driverLoc.active_trip_id) {
+        throw new ConflictException('Driver is already on an active trip');
       }
 
-      order.status = OrderStatus.ACCEPTED;
-      order.driver_id = driverId;
-      await transactionalEntityManager.save(order);
+      trip.status = OrderStatus.ACCEPTED;
+      trip.driver_id = driverId;
+      await transactionalEntityManager.save(trip);
 
       if (driverLoc) {
-        driverLoc.active_order_id = order.id;
+        driverLoc.active_trip_id = trip.id;
         await transactionalEntityManager.save(driverLoc);
       }
 
-      this.logger.log(`Order ${order.id} accepted by driver ${driverId}`);
-      return order;
+      this.logger.log(`Trip ${trip.id} accepted by driver ${driverId}`);
+      return trip;
     });
   }
 
-  async cancelOrder(orderId: string, userId: string, role: Role): Promise<Order> {
+  async cancelOrder(tripId: string, userId: string, role: Role): Promise<Trip> {
     return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
-      const order = await transactionalEntityManager
-        .createQueryBuilder(Order, 'order')
+      const trip = await transactionalEntityManager
+        .createQueryBuilder(Trip, 'trip')
         .setLock('pessimistic_write')
-        .where('order.id = :id', { id: orderId })
+        .where('trip.id = :id', { id: tripId })
         .getOne();
 
-      if (!order) throw new NotFoundException('Order not found');
+      if (!trip) throw new NotFoundException('Trip not found');
 
       if (role === Role.CUSTOMER) {
-        if (order.customer_id !== userId) throw new ForbiddenException('Not your order');
-        if (order.status === OrderStatus.IN_TRANSIT || order.status === OrderStatus.WAITING_FOR_FOOD) {
-          throw new BadRequestException('Cannot cancel order at this stage');
+        if (trip.customer_id !== userId) throw new ForbiddenException('Not your trip');
+        if (trip.status === OrderStatus.IN_TRANSIT) {
+          throw new BadRequestException('Cannot cancel trip after pickup');
         }
         
-        order.status = OrderStatus.CANCELLED;
+        trip.status = OrderStatus.CANCELLED;
         
-        if (order.driver_id) {
-          const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: order.driver_id } });
+        if (trip.driver_id) {
+          const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: trip.driver_id } });
           if (driverLoc) {
-            driverLoc.active_order_id = null;
+            driverLoc.active_trip_id = null;
             await transactionalEntityManager.save(driverLoc);
           }
         }
       } else if (role === Role.DRIVER) {
-        if (order.driver_id !== userId) throw new ForbiddenException('Not your order');
+        if (trip.driver_id !== userId) throw new ForbiddenException('Not your trip');
         
-        // Driver cancels -> reset order so it finds another driver
-        order.status = OrderStatus.FINDING_DRIVER;
-        order.driver_id = null;
+        // Driver cancels -> reset trip so it finds another driver
+        trip.status = OrderStatus.FINDING_DRIVER;
+        trip.driver_id = null;
         
         const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: userId } });
         if (driverLoc) {
-          driverLoc.active_order_id = null;
+          driverLoc.active_trip_id = null;
           await transactionalEntityManager.save(driverLoc);
         }
         
-        this.eventEmitter.emit('order.created', order); // Re-trigger matching
+        this.eventEmitter.emit('trip.created', trip); // Re-trigger matching
       }
 
-      this.logger.log(`Order ${order.id} cancelled by ${role} ${userId}`);
-      return transactionalEntityManager.save(order);
+      this.logger.log(`Trip ${trip.id} cancelled by ${role} ${userId}`);
+      return transactionalEntityManager.save(trip);
     });
   }
 
-  async submitReview(orderId: string, customerId: string, rating: number, feedback: string): Promise<Review> {
-    const order = await this.ordersRepository.findOne({ where: { id: orderId } });
+  async submitReview(tripId: string, customerId: string, rating: number, feedback: string): Promise<Review> {
+    const trip = await this.ordersRepository.findOne({ where: { id: tripId } });
     
-    if (!order) throw new NotFoundException('Order not found');
-    if (order.customer_id !== customerId) throw new ForbiddenException('Not your order');
-    if (order.status !== OrderStatus.COMPLETED) {
-      throw new BadRequestException('You can only review completed orders');
+    if (!trip) throw new NotFoundException('Trip not found');
+    if (trip.customer_id !== customerId) throw new ForbiddenException('Not your trip');
+    if (trip.status !== OrderStatus.COMPLETED) {
+      throw new BadRequestException('You can only review completed trips');
     }
 
-    const existingReview = await this.reviewsRepository.findOne({ where: { order_id: orderId } });
+    const existingReview = await this.reviewsRepository.findOne({ where: { trip_id: tripId } });
     if (existingReview) {
-      throw new ConflictException('Order already reviewed');
+      throw new ConflictException('Trip already reviewed');
     }
 
     const review = this.reviewsRepository.create({
-      order_id: order.id,
+      trip_id: trip.id,
       customer_id: customerId,
-      driver_id: order.driver_id!,
+      driver_id: trip.driver_id!,
       rating,
       feedback,
     });
@@ -349,7 +347,7 @@ export class OrdersService {
     const result = await this.reviewsRepository
       .createQueryBuilder('review')
       .select('AVG(review.rating)', 'average_rating')
-      .where('review.driver_id = :driverId', { driverId: order.driver_id })
+      .where('review.driver_id = :driverId', { driverId: trip.driver_id })
       .getRawOne();
       
     const newAverage = result.average_rating ? parseFloat(result.average_rating) : rating;
@@ -359,62 +357,62 @@ export class OrdersService {
       .createQueryBuilder()
       .update('driver_profiles')
       .set({ average_rating: newAverage })
-      .where('user_id = :driverId', { driverId: order.driver_id })
+      .where('user_id = :driverId', { driverId: trip.driver_id })
       .execute();
       
     return savedReview;
   }
 
-  async updateStatus(orderId: string, driverId: string, newStatus: OrderStatus): Promise<Order> {
+  async updateStatus(tripId: string, driverId: string, newStatus: OrderStatus): Promise<Trip> {
     return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
-      const order = await transactionalEntityManager
-        .createQueryBuilder(Order, 'order')
+      const trip = await transactionalEntityManager
+        .createQueryBuilder(Trip, 'trip')
         .setLock('pessimistic_write')
-        .where('order.id = :id', { id: orderId })
+        .where('trip.id = :id', { id: tripId })
         .getOne();
 
-      if (!order) throw new NotFoundException('Order not found');
-      if (order.driver_id !== driverId) throw new ForbiddenException('Not your order');
+      if (!trip) throw new NotFoundException('Trip not found');
+      if (trip.driver_id !== driverId) throw new ForbiddenException('Not your trip');
 
-      const isValid = this.validateStateTransition(order.status, newStatus);
+      const isValid = this.validateStateTransition(trip.status, newStatus);
       if (!isValid) {
-        throw new BadRequestException(`Cannot transition from ${order.status} to ${newStatus}`);
+        throw new BadRequestException(`Cannot transition from ${trip.status} to ${newStatus}`);
       }
 
-      order.status = newStatus;
+      trip.status = newStatus;
 
       // Release driver if completed and calculate wallet
       if (newStatus === OrderStatus.COMPLETED) {
         const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: driverId } });
         if (driverLoc) {
-          driverLoc.active_order_id = null;
+          driverLoc.active_trip_id = null;
           await transactionalEntityManager.save(driverLoc);
         }
 
-        order.payment_status = PaymentStatus.PAID;
+        trip.payment_status = PaymentStatus.PAID;
 
-        const customerPaidToDriver = order.payment_method === PaymentMethod.CASH ? Number(order.total_fare) : 0;
+        const customerPaidToDriver = trip.payment_method === PaymentMethod.CASH ? Number(trip.total_fare) : 0;
 
         await this.walletsService.processTripRevenue(
           driverId,
-          order.id,
-          Number(order.driver_revenue),
+          trip.id,
+          Number(trip.driver_revenue),
           customerPaidToDriver,
           transactionalEntityManager,
         );
       }
 
-      await transactionalEntityManager.save(order);
+      await transactionalEntityManager.save(trip);
 
       // Emit status changed event to TrackingGateway
-      this.trackingGateway.server.to(`order_${order.id}`).emit('order:status_changed', {
-        orderId: order.id,
+      this.trackingGateway.server.to(`trip_${trip.id}`).emit('trip:status_changed', {
+        tripId: trip.id,
         status: newStatus,
         timestamp: new Date().toISOString(),
       });
 
-      this.logger.log(`Order ${order.id} status updated to ${newStatus} by driver ${driverId}`);
-      return order;
+      this.logger.log(`Trip ${trip.id} status updated to ${newStatus} by driver ${driverId}`);
+      return trip;
     });
   }
 }

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OrdersController } from './orders.controller';
-import { OrdersService } from './orders.service';
-import { Order } from './entities/order.entity';
+import { OrdersController } from './trips.controller';
+import { OrdersService } from './trips.service';
+import { Trip } from './entities/trip.entity';
 import { Review } from './entities/review.entity';
 import { RoutingModule } from '../routing/routing.module';
 import { PricingModule } from '../pricing/pricing.module';
@@ -13,7 +13,7 @@ import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, Review]),
+    TypeOrmModule.forFeature([Trip, Review]),
     RoutingModule,
     PricingModule,
     DriversModule,

@@ -3,7 +3,7 @@ import { SimulatorController } from './simulator.controller';
 import { SimulatorService } from './simulator.service';
 import { RoutingModule } from '../routing/routing.module';
 import { TrackingModule } from '../tracking/tracking.module';
-import { OrdersModule } from '../orders/orders.module';
+import { OrdersModule } from '../trips/trips.module';
 import { DriversModule } from '../drivers/drivers.module';
 
 @Module({
