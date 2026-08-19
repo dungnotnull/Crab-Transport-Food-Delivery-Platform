@@ -5,6 +5,7 @@ import { User } from '../../users/entities/user.entity';
 export enum OrderStatus {
   FINDING_DRIVER = 'FINDING_DRIVER',
   ACCEPTED = 'ACCEPTED',
+  DRIVER_ARRIVING = 'DRIVER_ARRIVING',
   ARRIVED_AT_PICKUP = 'ARRIVED_AT_PICKUP',
   IN_TRANSIT = 'IN_TRANSIT',
   ARRIVED_AT_DESTINATION = 'ARRIVED_AT_DESTINATION',

@@ -36,7 +36,7 @@ export class OrdersService {
 
   async previewOrder(bookOrderDto: BookOrderDto) {
     const route = await this.routingService.getRoute(bookOrderDto.pickup, bookOrderDto.dropoff);
-    if (route.distance > 50000) throw new BadRequestException('Distance exceeds 50km limit');
+    // Distance limit removed to allow booking anywhere
 
     // Get pricing without coupon first
     const basePricing = await this.pricingService.calculateFare(route.distance, 'STANDARD');
@@ -62,7 +62,7 @@ export class OrdersService {
     const { pickup, dropoff, coupon_code, paymentMethod } = bookOrderDto;
 
     const route = await this.routingService.getRoute(pickup, dropoff);
-    if (route.distance > 50000) throw new BadRequestException('Distance exceeds max limit 50km');
+    // Distance limit removed to allow booking anywhere
 
     return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
       const basePricing = await this.pricingService.calculateFare(route.distance);
@@ -201,7 +201,8 @@ export class OrdersService {
   validateStateTransition(current: OrderStatus, next: OrderStatus): boolean {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       [OrderStatus.FINDING_DRIVER]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
-      [OrderStatus.ACCEPTED]: [OrderStatus.ARRIVED_AT_PICKUP, OrderStatus.CANCELLED],
+      [OrderStatus.ACCEPTED]: [OrderStatus.DRIVER_ARRIVING, OrderStatus.CANCELLED],
+      [OrderStatus.DRIVER_ARRIVING]: [OrderStatus.ARRIVED_AT_PICKUP, OrderStatus.CANCELLED],
       [OrderStatus.ARRIVED_AT_PICKUP]: [OrderStatus.IN_TRANSIT, OrderStatus.CANCELLED],
       [OrderStatus.IN_TRANSIT]: [OrderStatus.ARRIVED_AT_DESTINATION],
       [OrderStatus.ARRIVED_AT_DESTINATION]: [OrderStatus.COMPLETED],
