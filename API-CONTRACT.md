@@ -56,7 +56,9 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   {
     "pickup": { "lat": 10.762622, "lng": 106.660172 },
     "dropoff": { "lat": 10.776889, "lng": 106.700806 },
-    "vehicleType": "BIKE"
+    "vehicleType": "BIKE",
+    "coupon_code": "WELCOME10K",
+    "paymentMethod": "CASH" // Tùy chọn: CASH (Mặc định), CREDIT_CARD, E_WALLET
   }
   ```
 

@@ -14,6 +14,18 @@ export enum OrderStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export enum PaymentMethod {
+  CASH = 'CASH',
+  CREDIT_CARD = 'CREDIT_CARD',
+  E_WALLET = 'E_WALLET',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
@@ -56,8 +68,37 @@ export class Order {
   })
   status: OrderStatus;
 
+  @Column('decimal', { precision: 10, scale: 2 })
+  original_fare: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  coupon_code: string | null;
+
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
-  total_fare: number;
+  discount_amount: number;
+
+  @Column('decimal', { precision: 10, scale: 2 })
+  platform_fee: number;
+
+  @Column('decimal', { precision: 10, scale: 2 })
+  driver_revenue: number;
+
+  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  total_fare: number; // customer_paid
+
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+    default: PaymentMethod.CASH,
+  })
+  payment_method: PaymentMethod;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  payment_status: PaymentStatus;
 
   @CreateDateColumn()
   created_at: Date;

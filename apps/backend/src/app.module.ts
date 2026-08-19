@@ -13,6 +13,9 @@ import { OrdersModule } from './orders/orders.module';
 import { DriversModule } from './drivers/drivers.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { SimulatorModule } from './simulator/simulator.module';
+import { SystemConfigsModule } from './system-configs/system-configs.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { WalletsModule } from './wallets/wallets.module';
 
 @Module({
   imports: [
@@ -45,6 +48,9 @@ import { SimulatorModule } from './simulator/simulator.module';
     DriversModule,
     TrackingModule,
     SimulatorModule,
+    SystemConfigsModule,
+    CouponsModule,
+    WalletsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

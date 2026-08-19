@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DriverLocation } from './entities/driver-location.entity';
+import { SystemConfigsService } from '../system-configs/system-configs.service';
 
 @Injectable()
 export class DriversService {
   constructor(
     @InjectRepository(DriverLocation)
     private driverLocationRepo: Repository<DriverLocation>,
+    private systemConfigsService: SystemConfigsService,
   ) {}
 
   async toggleOnlineStatus(driverId: string, isOnline: boolean): Promise<DriverLocation> {
@@ -42,10 +44,15 @@ export class DriversService {
       coordinates: [lng, lat],
     };
 
+    const minBalance = await this.systemConfigsService.getValue('MIN_WALLET_BALANCE');
+
     return this.driverLocationRepo
       .createQueryBuilder('driverLocation')
+      .innerJoin('driver_wallets', 'wallet', 'wallet.driver_id = driverLocation.user_id')
       .where('driverLocation.is_online = :isOnline', { isOnline: true })
       .andWhere('driverLocation.active_order_id IS NULL')
+      .andWhere('wallet.status = :status', { status: 'ACTIVE' })
+      .andWhere('wallet.balance >= :minBalance', { minBalance })
       .andWhere(
         'ST_DWithin(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography, :radius)',
         { origin: JSON.stringify(origin), radius: radiusInMeters }

@@ -8,6 +8,8 @@ import { RoutingModule } from '../routing/routing.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { DriversModule } from '../drivers/drivers.module';
 import { TrackingModule } from '../tracking/tracking.module';
+import { CouponsModule } from '../coupons/coupons.module';
+import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { TrackingModule } from '../tracking/tracking.module';
     PricingModule,
     DriversModule,
     TrackingModule,
+    CouponsModule,
+    WalletsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderStatus, PaymentMethod, PaymentStatus } from './entities/order.entity';
 import { Review } from './entities/review.entity';
 import { BookOrderDto } from './dto/book-order.dto';
 import { RoutingService } from '../routing/routing.service';
@@ -12,6 +12,8 @@ import { DriversService } from '../drivers/drivers.service';
 import { DriverLocation } from '../drivers/entities/driver-location.entity';
 import { Role } from '../users/entities/user.entity';
 import { TrackingGateway } from '../tracking/tracking.gateway';
+import { CouponsService } from '../coupons/coupons.service';
+import { WalletsService } from '../wallets/wallets.service';
 
 @Injectable()
 export class OrdersService {
@@ -27,62 +29,91 @@ export class OrdersService {
     private eventEmitter: EventEmitter2,
     private driversService: DriversService,
     private trackingGateway: TrackingGateway,
+    private couponsService: CouponsService,
+    private walletsService: WalletsService,
   ) {}
 
   async previewOrder(bookOrderDto: BookOrderDto) {
-    // Call OSRM
     const route = await this.routingService.getRoute(bookOrderDto.pickup, bookOrderDto.dropoff);
-    
-    if (route.distance > 50000) {
-      throw new BadRequestException('Distance exceeds 50km limit');
-    }
+    if (route.distance > 50000) throw new BadRequestException('Distance exceeds 50km limit');
 
-    const fare = this.pricingService.calculateFare(route.distance, 'STANDARD');
+    // Get pricing without coupon first
+    const basePricing = await this.pricingService.calculateFare(route.distance, 'STANDARD');
+    let finalPricing = basePricing;
+    let couponResult: any = null;
+
+    if (bookOrderDto.coupon_code) {
+      couponResult = await this.couponsService.validateAndCalculateDiscount(bookOrderDto.coupon_code, basePricing.originalFare);
+      finalPricing = await this.pricingService.calculateFare(route.distance, 'STANDARD', couponResult.discountAmount);
+    }
 
     return {
       distance: route.distance,
       duration: route.duration,
-      fare,
-      geometry: route.geometry, // For Leaflet to draw polyline
+      fare: finalPricing.totalFare,
+      original_fare: finalPricing.originalFare,
+      discount_amount: finalPricing.discountAmount,
+      geometry: route.geometry,
     };
   }
 
   async bookOrder(customerId: string, bookOrderDto: BookOrderDto): Promise<Order> {
-    const { pickup, dropoff } = bookOrderDto;
+    const { pickup, dropoff, coupon_code, paymentMethod } = bookOrderDto;
 
-    // 1. Calculate route & distance
     const route = await this.routingService.getRoute(pickup, dropoff);
+    if (route.distance > 50000) throw new BadRequestException('Distance exceeds max limit 50km');
 
-    // 2. Validate Geospatial Constraint: max 50km
-    if (route.distance > 50000) {
-      throw new BadRequestException('Distance exceeds the maximum allowed limit of 50km');
-    }
+    return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
+      const basePricing = await this.pricingService.calculateFare(route.distance);
+      let finalPricing = basePricing;
 
-    // 3. Calculate Pricing
-    const totalFare = this.pricingService.calculateFare(route.distance);
+      if (coupon_code) {
+        // Validation + lock coupon to prevent race condition
+        const couponResult = await this.couponsService.validateAndCalculateDiscount(coupon_code, basePricing.originalFare);
+        
+        const couponRepo = transactionalEntityManager.getRepository('Coupon');
+        const lockedCoupon = await couponRepo
+          .createQueryBuilder('coupon')
+          .setLock('pessimistic_write')
+          .where('coupon.code = :code', { code: coupon_code })
+          .getOne();
 
-    // 4. Create Order
-    const order = this.ordersRepository.create({
-      customer_id: customerId,
-      pickup_location: {
-        type: 'Point',
-        coordinates: [pickup.lng, pickup.lat],
-      },
-      dropoff_location: {
-        type: 'Point',
-        coordinates: [dropoff.lng, dropoff.lat],
-      },
-      total_fare: totalFare,
-      status: OrderStatus.FINDING_DRIVER,
+        if (!lockedCoupon) {
+          throw new NotFoundException('Coupon not found');
+        }
+
+        if (lockedCoupon.used_count >= lockedCoupon.usage_limit) {
+          throw new ConflictException('Coupon was just used up by someone else');
+        }
+
+        lockedCoupon.used_count += 1;
+        await transactionalEntityManager.save(lockedCoupon);
+
+        finalPricing = await this.pricingService.calculateFare(route.distance, 'STANDARD', couponResult.discountAmount);
+      }
+
+      const order = transactionalEntityManager.create(Order, {
+        customer_id: customerId,
+        pickup_location: { type: 'Point', coordinates: [pickup.lng, pickup.lat] },
+        dropoff_location: { type: 'Point', coordinates: [dropoff.lng, dropoff.lat] },
+        status: OrderStatus.FINDING_DRIVER,
+        original_fare: finalPricing.originalFare,
+        coupon_code: coupon_code || null,
+        discount_amount: finalPricing.discountAmount,
+        platform_fee: finalPricing.platformFee,
+        driver_revenue: finalPricing.driverRevenue,
+        total_fare: finalPricing.totalFare,
+        payment_method: paymentMethod || PaymentMethod.CASH,
+        payment_status: PaymentStatus.PENDING,
+      });
+
+      const savedOrder = await transactionalEntityManager.save(order);
+
+      this.eventEmitter.emit('order.created', savedOrder);
+      this.logger.log(`Order ${savedOrder.id} booked. Fare: ${savedOrder.total_fare}`);
+
+      return savedOrder;
     });
-
-    const savedOrder = await this.ordersRepository.save(order);
-
-    // 5. Emit event for Dispatch/Matching algorithm
-    this.eventEmitter.emit('order.created', savedOrder);
-    this.logger.log(`Order ${savedOrder.id} booked successfully by customer ${customerId}`);
-
-    return savedOrder;
   }
 
   @Cron('0 * * * * *') // Run every minute
@@ -104,7 +135,13 @@ export class OrdersService {
         order.status = OrderStatus.CANCELLED;
         await this.ordersRepository.save(order);
         this.logger.log(`Order ${order.id} automatically cancelled due to timeout`);
-        // We could emit another event here, e.g., order.cancelled_timeout
+        
+        // Emit event to Frontend via Websocket
+        this.trackingGateway.server.to(`order_${order.id}`).emit('order:status_changed', {
+          orderId: order.id,
+          status: OrderStatus.CANCELLED,
+          timestamp: new Date().toISOString(),
+        });
       }
     }
   }
@@ -275,13 +312,25 @@ export class OrdersService {
 
       order.status = newStatus;
 
-      // Release driver if completed
+      // Release driver if completed and calculate wallet
       if (newStatus === OrderStatus.COMPLETED) {
         const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: driverId } });
         if (driverLoc) {
           driverLoc.active_order_id = null;
           await transactionalEntityManager.save(driverLoc);
         }
+
+        order.payment_status = PaymentStatus.PAID;
+
+        const customerPaidToDriver = order.payment_method === PaymentMethod.CASH ? Number(order.total_fare) : 0;
+
+        await this.walletsService.processTripRevenue(
+          driverId,
+          order.id,
+          Number(order.driver_revenue),
+          customerPaidToDriver,
+          transactionalEntityManager,
+        );
       }
 
       await transactionalEntityManager.save(order);

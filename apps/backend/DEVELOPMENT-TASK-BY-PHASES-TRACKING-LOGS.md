@@ -93,4 +93,24 @@
   - [x] Tạo `Review` entity lưu đánh giá 1-5 sao.
   - [x] API `POST /api/v1/orders/:id/rating` để Customer gửi đánh giá khi cuốc xe kết thúc.
 
+## Phase 7: Quản lý Coupon, Ví tài xế và Chiết khấu (Economy System) - [COMPLETED]
+**Mục tiêu**: Hỗ trợ Coupon cho User (Giảm giá chuyến đi) và Ví Driver (Khấu trừ % chiết khấu nền tảng).
+- **Tính năng**:
+  - `[x]` Module `SystemConfigs`: Lưu `BASE_FARE`, `RATE_PER_KM`, `PLATFORM_COMMISSION_PERCENT`.
+  - `[x]` Module `Coupons`: Quản lý Coupon (mã, số tiền giảm, giới hạn).
+  - `[x]` Module `Wallets`: Quản lý Ví tài xế (`balance`, `wallet_transactions`).
+  - `[x]` Update Order flow: Áp dụng Coupon (Preview & Book), Pessimistic Locking chống Race-condition.
+  - `[x]` Update Order Complete: Cập nhật Ví tài xế (Cộng/Trừ phí hoa hồng).
+- **Ràng buộc (Constraints)**:
+  - Bắt buộc dùng `Pessimistic Locking` khi trừ số lượt sử dụng Coupon (tránh race condition nhiều người xài cùng lúc).
 
+## Phase 8: Phương thức thanh toán & Driver Wallet Blocking - [COMPLETED]
+- **Tính năng**:
+  - `[x]` Entity `Order`: Thêm `PaymentMethod` (CASH, CREDIT_CARD, E_WALLET) và `PaymentStatus`.
+  - `[x]` Config `MIN_WALLET_BALANCE`: Cấu hình số dư tối thiểu của ví tài xế (mặc định 100k).
+  - `[x]` Cập nhật Ví tài xế: Khấu trừ tiền nếu khách trả CASH, cộng doanh thu nếu khách trả THẺ. 
+  - `[x]` Tính năng Chống nhận cuốc: Đổi trạng thái ví thành `BLOCKED` nếu `balance < MIN_WALLET_BALANCE`. Thuật toán Matching tự động bỏ qua tài xế bị Blocked.
+- **Ràng buộc (Constraints)**:
+  - Nếu `payment_method = CASH`, tài xế đã cầm đủ tiền => Sàn phải trừ tiền phí từ ví (có thể làm ví âm tạm thời).
+  - Nếu `payment_method = CREDIT_CARD`, tài xế không nhận được tiền mặt => Sàn phải cộng 100% doanh thu chuyến đi vào ví tài xế.
+  - Driver Location matching query PHẢI dùng `INNER JOIN` với `DriverWallet` để check `status = ACTIVE` và `balance >= MIN_WALLET_BALANCE`.
