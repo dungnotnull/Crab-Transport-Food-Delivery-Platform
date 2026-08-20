@@ -31,7 +31,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
 
   const { showToast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
-  const [couponCode, setCouponCode] = useState('WELCOME10K');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponInput, setCouponInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocatingGPS, setIsLocatingGPS] = useState(false);
 
@@ -71,7 +72,12 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           }
         })
         .catch((err) => {
-          console.error('Lỗi tính đường OSRM:', err);
+          console.error('Lỗi tính đường OSRM hoặc mã KM:', err);
+          if (couponCode) {
+            showToast('Mã khuyến mãi không hợp lệ hoặc đã hết hạn!', 'error');
+            setCouponCode('');
+            setCouponInput('');
+          }
         })
         .finally(() => {
           if (isMounted) setIsLoadingRoute(false);
@@ -178,7 +184,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-[#00B14F] inline-block animate-pulse"></span>
-              Điểm đón (Vị trí hiện tại)
+              Điểm đón (Kéo thả trên map)
             </span>
             <button
               onClick={handleRefreshCurrentGPS}
@@ -200,7 +206,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444] inline-block"></span>
-              Điểm đến
+              Điểm đến (Kéo thả trên map)
             </span>
             <span className="text-[11px] text-slate-400">Click trên bản đồ hoặc chọn gợi ý</span>
           </div>
@@ -212,22 +218,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           </div>
         </div>
 
-        {/* Quick Popular Dropoff Chips */}
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {POPULAR_DESTINATIONS.map((dest, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSelectPopularDropoff(dest)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-all ${
-                dropoff?.address === dest.address
-                  ? 'bg-[#00B14F] text-white border-[#00B14F] font-bold shadow-xs'
-                  : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
-              }`}
-            >
-              {dest.address?.split(',')[0]}
-            </button>
-          ))}
-        </div>
+
       </div>
 
       {/* OSRM Route Info Preview */}
@@ -340,11 +331,32 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           </button>
         </div>
 
-        <div className="flex items-center gap-1 text-xs font-bold text-[#00B14F] bg-emerald-50 px-2.5 py-1 rounded-xl">
-          <Sparkles className="w-3.5 h-3.5" />
-          Giảm 10k
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Mã KM (nếu có)"
+            value={couponInput}
+            onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+            className="w-28 px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:border-[#00B14F]"
+          />
+          <button
+            type="button"
+            onClick={() => setCouponCode(couponInput)}
+            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Áp dụng
+          </button>
         </div>
       </div>
+      
+      {routePreview && routePreview.breakdown?.discount ? (
+        <div className="flex justify-end -mt-2">
+          <span className="text-xs font-bold text-[#00B14F]">
+            Tiết kiệm được: {formatCurrency(routePreview.breakdown.discount)}
+          </span>
+        </div>
+      ) : null}
 
       {/* Book Action Button */}
       <Button
