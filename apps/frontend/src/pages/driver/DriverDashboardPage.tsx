@@ -20,11 +20,11 @@ export const DriverDashboardPage: React.FC = () => {
   const { showToast } = useToast();
 
   const driverProfile = user?.driverProfile || {
-    license_plate: '59P1-88888',
-    vehicle_type: 'BIKE',
-    vehicle_brand: 'Honda Wave Alpha',
-    color: 'Xanh Lá',
-    vehicle_image: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=300',
+    license_plate: '51H-888.88',
+    vehicle_type: 'CAR_4',
+    vehicle_brand: 'Toyota Vios 1.5G',
+    color: 'Trắng Ánh Kim',
+    vehicle_image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=300',
     average_rating: 5.0,
     is_online: true,
   };
@@ -192,15 +192,11 @@ export const DriverDashboardPage: React.FC = () => {
               {driverProfile.vehicle_brand}
             </div>
             <p className="text-[11px] text-slate-500 font-medium mt-1">
-              Loại: <strong className="text-slate-800">{driverProfile.vehicle_type}</strong> ({driverProfile.color || 'Xanh Lá'})
+              Loại: <strong className="text-slate-800">{driverProfile.vehicle_type === 'CAR_7' ? 'CrabCar 7 Chỗ' : 'CrabCar 4 Chỗ'}</strong> ({driverProfile.color || 'Trắng'})
             </p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-            {driverProfile.vehicle_type === 'CAR' ? (
-              <Car className="w-6 h-6 text-blue-600" />
-            ) : (
-              <Bike className="w-6 h-6 text-blue-600" />
-            )}
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-[#00B14F]">
+            <Car className="w-6 h-6" />
           </div>
         </Card>
       </div>

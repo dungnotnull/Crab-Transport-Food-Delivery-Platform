@@ -1,15 +1,21 @@
 import { apiClient } from './api';
 import { ApiResponse } from '../types/api.types';
-import { BookTripDto, LocationPoint, RoutePreviewData, Trip } from '../types/trip.types';
+import { BookTripDto, LocationPoint, RoutePreviewData, ServiceType, Trip } from '../types/trip.types';
 
 export const tripService = {
   /**
    * Xem trước lộ trình OSRM và tính cước phí dự kiến từ Backend DB (`POST /api/v1/trips/preview`)
    */
-  async previewTrip(pickup: LocationPoint, dropoff: LocationPoint, couponCode?: string): Promise<RoutePreviewData> {
+  async previewTrip(
+    pickup: LocationPoint,
+    dropoff: LocationPoint,
+    vehicleType: ServiceType = 'CAR_4',
+    couponCode?: string
+  ): Promise<RoutePreviewData> {
     const res = await apiClient.post<ApiResponse<any>>('/trips/preview', {
       pickup: { lat: pickup.lat, lng: pickup.lng },
       dropoff: { lat: dropoff.lat, lng: dropoff.lng },
+      vehicleType,
       coupon_code: couponCode,
     });
 
@@ -53,6 +59,7 @@ export const tripService = {
     const res = await apiClient.post<ApiResponse<any>>('/trips/book', {
       pickup: { lat: dto.pickup.lat, lng: dto.pickup.lng },
       dropoff: { lat: dto.dropoff.lat, lng: dto.dropoff.lng },
+      vehicleType: dto.vehicleType || 'CAR_4',
       coupon_code: dto.coupon_code,
       paymentMethod: dto.paymentMethod || 'CASH',
     });

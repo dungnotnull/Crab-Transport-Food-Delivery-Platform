@@ -23,18 +23,18 @@ export const Navbar: React.FC = () => {
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="w-10 h-10 rounded-2xl bg-[#00B14F] flex items-center justify-center text-white shadow-md shadow-[#00B14F]/30 group-hover:scale-105 transition-transform">
               <span className="text-xl">
-                {user?.role === 'DRIVER' ? '🚗' : user?.role === 'ADMIN' ? '🛡️' : '🛵'}
+                {user?.role === 'DRIVER' ? '🚗' : user?.role === 'ADMIN' ? '🛡️' : '🚗'}
               </span>
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xl font-extrabold text-slate-900 tracking-tight">Crab</span>
+                <span className="text-xl font-extrabold text-slate-900 tracking-tight">CrabCar</span>
                 <span className="text-xs font-bold text-[#00B14F] bg-emerald-50 px-1.5 py-0.5 rounded-md uppercase">
                   {user?.role === 'DRIVER'
                     ? 'Driver App'
                     : user?.role === 'ADMIN'
                     ? 'Admin Portal'
-                    : 'Transport'}
+                    : 'Ride Hailing'}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium leading-none">
@@ -42,7 +42,7 @@ export const Navbar: React.FC = () => {
                   ? 'Ứng dụng Đối tác Tài xế'
                   : user?.role === 'ADMIN'
                   ? 'Hệ thống Quản trị Vận hành'
-                  : 'Nền tảng Đặt xe & Giao món'}
+                  : 'Nền tảng Đặt xe 4 Chỗ & 7 Chỗ'}
               </p>
             </div>
           </Link>
@@ -54,8 +54,8 @@ export const Navbar: React.FC = () => {
             {/* Customer Role Menu */}
             {user.role === 'CUSTOMER' && (
               <div className="flex items-center gap-2 bg-emerald-50 text-[#00B14F] px-3.5 py-1.5 rounded-xl font-extrabold text-xs">
-                <Navigation className="w-3.5 h-3.5 text-[#00B14F]" />
-                <span>Đặt Xe & Giao Hàng</span>
+                <Car className="w-3.5 h-3.5 text-[#00B14F]" />
+                <span>Đặt Xe CrabCar</span>
               </div>
             )}
 

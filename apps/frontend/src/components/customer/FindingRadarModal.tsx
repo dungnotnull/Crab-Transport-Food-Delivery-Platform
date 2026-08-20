@@ -61,7 +61,7 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
 
           {/* Central Pulsing Icon */}
           <div className="relative z-10 w-20 h-20 rounded-full bg-[#00B14F] text-white flex items-center justify-center shadow-xl shadow-[#00B14F]/40 border-4 border-white">
-            <span className="text-3xl">🛵</span>
+            <span className="text-3xl">{serviceType === 'BIKE' ? '🛵' : '🚗'}</span>
           </div>
         </div>
 
@@ -71,7 +71,7 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
           Đang quét tìm tài xế gần nhất trong bán kính 3km
         </Badge>
         <h3 className="text-xl font-black text-slate-900 tracking-tight">
-          Đang Tìm {serviceType === 'BIKE' ? 'CrabBike' : serviceType === 'CAR' ? 'CrabCar' : 'CrabFood'}...
+          Đang Tìm {serviceType === 'BIKE' ? 'CrabBike (Xe Máy)' : serviceType === 'CAR_7' ? 'CrabCar 7 Chỗ' : 'CrabCar 4 Chỗ'}...
         </h3>
         <p className="text-xs text-slate-500 font-medium mt-1">
           Thời gian tìm kiếm:{' '}

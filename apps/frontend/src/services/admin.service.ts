@@ -3,14 +3,21 @@ import { ApiResponse } from '../types/api.types';
 import { User } from '../types/user.types';
 
 export interface AdminStats {
-  totalTripsToday: number;
-  totalGmvToday: number;
-  activeOnlineDrivers: number;
-  completedTripsCount: number;
-  isRaining: boolean;
+  totalTrips: number;
+  totalRevenue: number;
+  totalCustomers: number;
+  totalDrivers: number;
 }
 
 export const adminService = {
+  /**
+   * Lấy thống kê tổng quan thực tế từ Backend DB (`GET /api/v1/admin/statistics`)
+   */
+  async getStatistics(): Promise<AdminStats> {
+    const res = await apiClient.get<ApiResponse<AdminStats>>('/admin/statistics');
+    return res.data.data;
+  },
+
   /**
    * Lấy danh sách Khách hàng thực tế từ Database (`GET /api/v1/users/customers`)
    */

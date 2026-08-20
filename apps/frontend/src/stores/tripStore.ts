@@ -25,9 +25,9 @@ interface TripState {
 }
 
 export const useTripStore = create<TripState>((set) => ({
-  pickup: HALO_BUILDING_LOCATION, // Mặc định điểm đón là Tòa nhà Halo Building
+  pickup: HALO_BUILDING_LOCATION,
   dropoff: null,
-  serviceType: 'BIKE',
+  serviceType: 'CAR_4',
   routePreview: null,
   activeTrip: null,
   driverLocation: null,

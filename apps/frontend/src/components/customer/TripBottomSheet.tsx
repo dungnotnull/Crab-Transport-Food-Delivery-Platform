@@ -127,7 +127,7 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
               </span>
             </div>
             <p className="text-xs font-semibold text-slate-600">
-              Honda Wave Alpha • <span className="font-extrabold text-slate-900 bg-slate-200/80 px-1.5 py-0.5 rounded">59P1-88888</span>
+              Toyota Vios • <span className="font-extrabold text-slate-900 bg-slate-200/80 px-1.5 py-0.5 rounded">51H-888.88</span>
             </p>
           </div>
         </div>

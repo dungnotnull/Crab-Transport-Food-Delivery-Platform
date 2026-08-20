@@ -8,6 +8,7 @@ import { useToast } from '../../components/common/Toast';
 import { Shield, Users, Car, CloudRain, Star, DollarSign, Activity, RefreshCw } from 'lucide-react';
 
 export const AdminOverviewPage: React.FC = () => {
+  const [stats, setStats] = useState<any>(null);
   const [customers, setCustomers] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
   const [isRaining, setIsRaining] = useState(false);
@@ -17,10 +18,12 @@ export const AdminOverviewPage: React.FC = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [custList, drvList] = await Promise.all([
+      const [statData, custList, drvList] = await Promise.all([
+        adminService.getStatistics().catch(() => null),
         adminService.getCustomers(),
         adminService.getDrivers(),
       ]);
+      if (statData) setStats(statData);
       setCustomers(custList || []);
       setDrivers(drvList || []);
     } catch (err: any) {
@@ -120,7 +123,9 @@ export const AdminOverviewPage: React.FC = () => {
         <Card className="flex items-center justify-between p-5">
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng khách hàng (DB)</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">{totalCustomers}</div>
+            <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+              {stats?.totalCustomers ?? totalCustomers}
+            </div>
             <p className="text-[11px] text-emerald-600 font-bold mt-1">{activeCustomers} đang hoạt động</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600">
@@ -131,39 +136,43 @@ export const AdminOverviewPage: React.FC = () => {
         {/* Total Drivers */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng tài xế đăng ký (DB)</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">{totalDrivers}</div>
-            <p className="text-[11px] text-amber-600 font-bold mt-1">Đầy đủ hồ sơ xe & biển số</p>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng tài xế (DB)</span>
+            <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+              {stats?.totalDrivers ?? totalDrivers}
+            </div>
+            <p className="text-[11px] text-amber-600 font-bold mt-1">{onlineDrivers} đang trực tuyến</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
             <Car className="w-6 h-6" />
           </div>
         </Card>
 
-        {/* Online Drivers */}
+        {/* Total Trips */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tài xế đang Online (DB)</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">{onlineDrivers} / {totalDrivers}</div>
-            <p className="text-[11px] text-emerald-600 font-bold mt-1">Sẵn sàng nhận cuốc gần nhất</p>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng chuyến xe (DB)</span>
+            <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+              {stats?.totalTrips ?? 0}
+            </div>
+            <p className="text-[11px] text-blue-600 font-bold mt-1">Hệ thống OSRM & PostGIS</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-[#00B14F]">
+          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
             <Activity className="w-6 h-6" />
           </div>
         </Card>
 
-        {/* System Weather / Status */}
+        {/* Total Revenue */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Trạng thái định giá</span>
-            <div className="text-lg font-black text-slate-900 tracking-tight mt-1">
-              {isRaining ? 'Surge 1.5x' : 'Tiêu chuẩn (1.0x)'}
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng doanh thu (GMV)</span>
+            <div className="text-2xl font-black text-[#00B14F] tracking-tight mt-1">
+              {stats?.totalRevenue ? formatCurrency(stats.totalRevenue) : '0 ₫'}
             </div>
-            <p className="text-[11px] text-blue-600 font-bold mt-1">
-              {isRaining ? 'Phụ phí mưa bão đang áp dụng' : 'Giá cước cơ sở bình thường'}
+            <p className="text-[11px] text-emerald-700 font-bold mt-1">
+              {isRaining ? '🌧️ Đang áp dụng Surge 1.5x' : '☀️ Giá cước tiêu chuẩn'}
             </p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-[#00B14F]">
             <DollarSign className="w-6 h-6" />
           </div>
         </Card>

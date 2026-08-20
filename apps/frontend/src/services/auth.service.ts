@@ -45,10 +45,10 @@ export const authService = {
         : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       driverProfile: decoded?.role === 'DRIVER'
         ? {
-            license_plate: '59P1-88888',
-            vehicle_type: 'BIKE',
-            vehicle_brand: 'Honda Wave Alpha',
-            color: 'Xanh Lá',
+            license_plate: '51H-888.88',
+            vehicle_type: 'CAR_4',
+            vehicle_brand: 'Toyota Vios 1.5G',
+            color: 'Trắng Ánh Kim',
             average_rating: 5.0,
             is_online: true,
           }
@@ -92,7 +92,9 @@ export const authService = {
       role: 'DRIVER',
       license_plate: dto.license_plate,
       vehicle_type: dto.vehicle_type,
-      color: dto.color || 'Xanh Lá',
+      vehicle_brand: dto.vehicle_brand,
+      color: dto.color || 'Trắng Ánh Kim',
+      vehicle_image: dto.vehicle_image,
     });
 
     // 2. Đăng nhập để nhận Token thực từ Backend DB

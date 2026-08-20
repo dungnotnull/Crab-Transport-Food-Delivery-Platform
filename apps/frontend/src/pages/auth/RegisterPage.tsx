@@ -7,7 +7,8 @@ import { Input } from '../../components/common/Input';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../components/common/Toast';
-import { Mail, Lock, User, Phone, Car, Bike, Sparkles, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User, Phone, Car, Upload, CheckCircle2, Image as ImageIcon, X } from 'lucide-react';
+import { VehicleType } from '../../types/user.types';
 
 export const RegisterPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -19,19 +20,60 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150');
+  const [avatarData, setAvatarData] = useState<string>('');
 
   // Driver Specific Fields
-  const [licensePlate, setLicensePlate] = useState('59P1-88888');
-  const [vehicleType, setVehicleType] = useState<'BIKE' | 'CAR'>('BIKE');
-  const [vehicleBrand, setVehicleBrand] = useState('Honda Wave Alpha 110cc');
-  const [color, setColor] = useState('Xanh Lá Crab');
-  const [vehicleImage, setVehicleImage] = useState('https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=400');
+  const [licensePlate, setLicensePlate] = useState('51H-888.88');
+  const [vehicleType, setVehicleType] = useState<VehicleType>('CAR_4');
+  const [vehicleBrand, setVehicleBrand] = useState('Toyota Vios 1.5G');
+  const [color, setColor] = useState('Trắng Ánh Kim');
+  const [vehicleImageData, setVehicleImageData] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuthStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  // Xử lý upload ảnh trực tiếp từ thiết bị
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, JPEG)!', 'warning');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Kích thước ảnh tối đa là 5MB!', 'warning');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAvatarData(event.target?.result as string);
+        showToast('Đã tải ảnh đại diện thành công!', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleVehicleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Vui lòng chọn tệp hình ảnh xe hợp lệ!', 'warning');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Kích thước ảnh xe tối đa là 5MB!', 'warning');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setVehicleImageData(event.target?.result as string);
+        showToast('Đã tải ảnh phương tiện thành công!', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +91,16 @@ export const RegisterPage: React.FC = () => {
     try {
       setIsLoading(true);
 
+      const defaultAvatar =
+        role === 'DRIVER'
+          ? 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150'
+          : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
+
+      const defaultVehicleImg =
+        vehicleType === 'CAR_7'
+          ? 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400'
+          : 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400';
+
       let data;
       if (role === 'DRIVER') {
         data = await authService.registerDriver({
@@ -57,12 +109,12 @@ export const RegisterPage: React.FC = () => {
           full_name: fullName,
           phone_number: phoneNumber,
           role: 'DRIVER',
-          avatar_url: avatarUrl,
+          avatar_url: avatarData || defaultAvatar,
           license_plate: licensePlate,
           vehicle_type: vehicleType,
           vehicle_brand: vehicleBrand,
           color,
-          vehicle_image: vehicleImage,
+          vehicle_image: vehicleImageData || defaultVehicleImg,
         });
       } else {
         data = await authService.registerCustomer({
@@ -71,12 +123,12 @@ export const RegisterPage: React.FC = () => {
           full_name: fullName,
           phone_number: phoneNumber,
           role: 'CUSTOMER',
-          avatar_url: avatarUrl,
+          avatar_url: avatarData || defaultAvatar,
         });
       }
 
       login(data.user, data.accessToken);
-      showToast(`Đăng ký thành công! Chào mừng ${data.user.full_name} gia nhập Crab`, 'success');
+      showToast(`Đăng ký thành công! Chào mừng ${data.user.full_name} gia nhập CrabCar`, 'success');
 
       if (role === 'DRIVER') {
         navigate('/driver');
@@ -84,24 +136,24 @@ export const RegisterPage: React.FC = () => {
         navigate('/customer');
       }
     } catch (err: any) {
-      showToast(err.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại!', 'error');
+      showToast(err.response?.data?.message || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin!', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-emerald-50/40 py-10">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 via-emerald-50/30 to-slate-100 py-10">
       <div className="w-full max-w-xl">
         <Card glass className="p-8 shadow-2xl border-slate-200/80">
           {/* Header */}
           <div className="text-center mb-6">
             <div className="w-12 h-12 rounded-2xl bg-[#00B14F] text-white flex items-center justify-center mx-auto mb-2.5 shadow-md shadow-[#00B14F]/30 text-2xl">
-              🛵
+              🚗
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Tạo Tài Khoản Mới</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Đăng Ký Tài Khoản CrabCar</h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Trải nghiệm đặt xe và đối tác tài xế thông minh cùng Crab
+              Nền tảng đặt xe công nghệ trực tuyến CrabCar 4 Chỗ & 7 Chỗ
             </p>
           </div>
 
@@ -138,7 +190,7 @@ export const RegisterPage: React.FC = () => {
             {/* Section 1: Personal Info */}
             <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
               <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                1. Thông tin cá nhân
+                1. Thông tin cá nhân & Ảnh đại diện
               </span>
             </div>
 
@@ -184,46 +236,104 @@ export const RegisterPage: React.FC = () => {
               />
             </div>
 
+            {/* Direct Avatar File Upload */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {avatarData ? (
+                  <div className="relative">
+                    <img
+                      src={avatarData}
+                      alt="Avatar Preview"
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-[#00B14F] shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAvatarData('')}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-sm hover:bg-red-600"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-[#00B14F]">
+                    <User className="w-6 h-6" />
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs font-bold text-slate-800">Ảnh đại diện cá nhân</p>
+                  <p className="text-[11px] text-slate-500">Tải ảnh trực tiếp từ máy (PNG, JPG, max 5MB)</p>
+                </div>
+              </div>
+
+              <label className="cursor-pointer shrink-0">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarFileChange}
+                  className="hidden"
+                />
+                <span className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 shadow-xs flex items-center gap-1.5 transition-colors">
+                  <Upload className="w-3.5 h-3.5 text-[#00B14F]" />
+                  {avatarData ? 'Đổi ảnh' : 'Chọn tệp ảnh'}
+                </span>
+              </label>
+            </div>
+
             {/* Section 2: Driver Vehicle Info (Only if Role = DRIVER) */}
             {role === 'DRIVER' && (
               <div className="flex flex-col gap-4 mt-2 p-4 bg-amber-50/50 rounded-2xl border border-amber-200/70 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between pb-1 border-b border-amber-200/50">
                   <span className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                     <Car className="w-4 h-4 text-amber-600" />
-                    2. Thông tin phương tiện & Hình ảnh
+                    2. Thông tin xe & Hình ảnh phương tiện
                   </span>
                   <Badge variant="warning" size="sm">Bắt buộc cho tài xế</Badge>
                 </div>
 
-                {/* Vehicle Type Selector */}
+                {/* Vehicle Type Selector: BIKE, CAR_4, CAR_7 */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Loại phương tiện
+                    Loại phương tiện đăng ký
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => setVehicleType('BIKE')}
-                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all ${
                         vehicleType === 'BIKE'
-                          ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F]'
-                          : 'border-slate-200 bg-white text-slate-600'
+                          ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F] shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                       }`}
                     >
-                      <Bike className="w-4 h-4" />
-                      Xe Máy (CrabBike)
+                      <span className="text-xl">🛵</span>
+                      <span>CrabBike</span>
+                      <span className="text-[10px] font-normal text-slate-500">Xe máy 2 bánh</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setVehicleType('CAR')}
-                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
-                        vehicleType === 'CAR'
-                          ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F]'
-                          : 'border-slate-200 bg-white text-slate-600'
+                      onClick={() => setVehicleType('CAR_4')}
+                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all ${
+                        vehicleType === 'CAR_4'
+                          ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F] shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                       }`}
                     >
-                      <Car className="w-4 h-4" />
-                      Ô Tô (CrabCar)
+                      <span className="text-xl">🚗</span>
+                      <span>CrabCar 4C</span>
+                      <span className="text-[10px] font-normal text-slate-500">Sedan 4 chỗ</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVehicleType('CAR_7')}
+                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all ${
+                        vehicleType === 'CAR_7'
+                          ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F] shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-xl">🚙</span>
+                      <span>CrabCar 7C</span>
+                      <span className="text-[10px] font-normal text-slate-500">SUV/MPV 7 chỗ</span>
                     </button>
                   </div>
                 </div>
@@ -231,7 +341,7 @@ export const RegisterPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Biển số xe"
-                    placeholder="VD: 59P1-88888"
+                    placeholder="VD: 51H-888.88"
                     value={licensePlate}
                     onChange={(e) => setLicensePlate(e.target.value)}
                     required
@@ -239,7 +349,7 @@ export const RegisterPage: React.FC = () => {
 
                   <Input
                     label="Hiệu xe / Dòng xe"
-                    placeholder="VD: Honda Wave Alpha, Vision, Vios"
+                    placeholder="VD: Toyota Vios, Xpander, Accent"
                     value={vehicleBrand}
                     onChange={(e) => setVehicleBrand(e.target.value)}
                     required
@@ -249,32 +359,48 @@ export const RegisterPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Màu sắc xe"
-                    placeholder="VD: Xanh Lá, Trắng, Đen"
+                    placeholder="VD: Trắng Ánh Kim, Đen, Bạc"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                   />
 
-                  <Input
-                    label="Link ảnh xe (Mock URL)"
-                    placeholder="https://..."
-                    value={vehicleImage}
-                    onChange={(e) => setVehicleImage(e.target.value)}
-                    leftIcon={<ImageIcon className="w-4 h-4" />}
-                  />
-                </div>
-
-                {/* Photo Previews */}
-                <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-amber-200/50">
-                  <img
-                    src={vehicleImage}
-                    alt="Vehicle Preview"
-                    className="w-16 h-12 object-cover rounded-lg border border-slate-200 shrink-0"
-                  />
-                  <div className="text-xs">
-                    <p className="font-bold text-slate-800">Xem trước ảnh phương tiện</p>
-                    <p className="text-[11px] text-slate-500">Hình ảnh giúp khách hàng dễ dàng nhận diện xe của bạn.</p>
+                  {/* Vehicle Image Upload */}
+                  <div className="flex flex-col justify-end">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Ảnh chụp phương tiện
+                    </label>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleVehicleFileChange}
+                        className="hidden"
+                      />
+                      <span className="w-full h-11 px-3.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 shadow-xs flex items-center justify-center gap-2 transition-colors">
+                        <Upload className="w-4 h-4 text-amber-500" />
+                        {vehicleImageData ? 'Đã tải ảnh (Bấm để đổi)' : 'Tải ảnh xe từ máy'}
+                      </span>
+                    </label>
                   </div>
                 </div>
+
+                {/* Vehicle Photo Preview */}
+                {vehicleImageData && (
+                  <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-amber-200/80">
+                    <img
+                      src={vehicleImageData}
+                      alt="Vehicle Preview"
+                      className="w-20 h-14 object-cover rounded-lg border border-slate-200 shrink-0"
+                    />
+                    <div className="text-xs">
+                      <p className="font-bold text-slate-800 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#00B14F]" />
+                        Ảnh xe đã sẵn sàng
+                      </p>
+                      <p className="text-[11px] text-slate-500">Khách hàng sẽ nhìn thấy ảnh xe khi khớp lệnh chuyến đi.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

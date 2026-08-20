@@ -1,9 +1,11 @@
 export type UserRole = 'CUSTOMER' | 'DRIVER' | 'ADMIN' | 'SYSTEM_ADMIN';
 
+export type VehicleType = 'BIKE' | 'CAR_4' | 'CAR_7';
+
 export interface DriverProfile {
   id?: string;
   license_plate: string;
-  vehicle_type: 'BIKE' | 'CAR';
+  vehicle_type: VehicleType;
   vehicle_brand?: string;
   color?: string;
   vehicle_image?: string;
@@ -36,7 +38,7 @@ export interface RegisterDriverDto {
   role: 'DRIVER';
   avatar_url?: string;
   license_plate: string;
-  vehicle_type: 'BIKE' | 'CAR';
+  vehicle_type: VehicleType;
   vehicle_brand: string;
   color?: string;
   vehicle_image?: string;

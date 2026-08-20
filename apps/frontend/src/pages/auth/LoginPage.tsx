@@ -69,11 +69,11 @@ export const LoginPage: React.FC = () => {
           {/* Logo & Header */}
           <div className="text-center mb-6">
             <div className="w-14 h-14 rounded-3xl bg-[#00B14F] text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-[#00B14F]/30 text-2xl">
-              🛵
+              🚗
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Đăng Nhập Crab</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Đăng Nhập CrabCar</h1>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Hệ thống đặt xe và giao hàng công nghệ thế hệ mới
+              Hệ thống đặt xe ô tô công nghệ 4 chỗ & 7 chỗ trực tuyến
             </p>
           </div>
 

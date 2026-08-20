@@ -10,7 +10,7 @@ export type TripStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
-export type ServiceType = 'BIKE' | 'CAR' | 'FOOD';
+export type ServiceType = 'BIKE' | 'CAR_4' | 'CAR_7';
 export type PaymentMethod = 'CASH' | 'CREDIT_CARD' | 'E_WALLET';
 
 export interface LocationPoint {
