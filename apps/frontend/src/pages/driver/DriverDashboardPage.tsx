@@ -66,21 +66,29 @@ export const DriverDashboardPage: React.FC = () => {
   useEffect(() => {
     if (!isOnline) return;
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setDriverLocation({ lat: latitude, lng: longitude });
-        socketService.emit('driver:update_location', { lat: latitude, lng: longitude });
-        
-        // Cập nhật lên API (Debounce)
-        driverService.updateLocation(latitude, longitude).catch(() => {});
-      },
-      () => showToast('Không thể lấy vị trí GPS. Hãy cấp quyền vị trí để nhận cuốc.', 'warning'),
-      { enableHighAccuracy: true }
-    );
+    const syncLocation = (latitude: number, longitude: number) => {
+      setDriverLocation({ lat: latitude, lng: longitude });
+      socketService.emit('driver:update_location', { lat: latitude, lng: longitude });
+      driverService.updateLocation(latitude, longitude).catch(() => {});
+    };
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [isOnline]);
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          syncLocation(pos.coords.latitude, pos.coords.longitude);
+        },
+        () => {
+          showToast('Không thể lấy GPS thực tế, hệ thống đã gán vị trí trung tâm để nhận cuốc.', 'info');
+          syncLocation(10.780171, 106.693983);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+
+      return () => navigator.geolocation.clearWatch(watchId);
+    } else {
+      syncLocation(10.780171, 106.693983);
+    }
+  }, [isOnline, showToast]);
 
   // 3. Socket listeners
   useEffect(() => {
