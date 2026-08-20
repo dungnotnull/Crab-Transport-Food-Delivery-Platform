@@ -121,3 +121,9 @@
   - `[x]` Entity `DriverProfile`: Thêm `average_rating`.
   - `[x]` Auto-Cancel SLA: Viết Cronjob quét mỗi 30s. Nếu cuốc xe ở trạng thái `ACCEPTED` quá `estimated_duration + 5 phút` mà chưa di chuyển -> Tự động `CANCELLED`, phạt tài xế (Khóa ví `BLOCKED`) và giải phóng tài xế.
   - `[x]` Priority Matching: Thay đổi logic chia cuốc, tự động tính lại `average_rating` sau khi khách Review. Thuật toán quét tài xế loại trừ các tài xế có `average_rating < 3.5`, đồng thời sắp xếp ưu tiên nổ cuốc theo công thức `Khoảng cách / Rating^2` (Rating càng cao càng dễ nổ cuốc).
+
+## Phase 10: Demo Enhancements & Bug Fixes
+- [ ] **Bug: Frontend Login Response (Frontend)**
+  - Ghi nh?n l?i: M�n h�nh DriverDashboard kh�ng hi?n th? d�ng th�ng tin xe v� h�nh ?nh xe.
+  - Nguy�n nh�n: Frontend thi?u component <img /> hi?n th? vehicle_image, v� do Backend API Login hi?n t?i chua tr? v? d?y d? data User + DriverProfile n�n Frontend ph?i d�ng mock data.
+  - Y�u c?u x? l� Frontend: Th�m <img /> v�o Dashboard v� d�ng d? li?u d?ng t? authStore thay v� mock data.
