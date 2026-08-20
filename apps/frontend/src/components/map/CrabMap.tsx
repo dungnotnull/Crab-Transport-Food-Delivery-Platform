@@ -7,7 +7,7 @@ import { RoutePolyline } from './RoutePolyline';
 import { MovingVehicleMarker } from './MovingVehicleMarker';
 
 interface CrabMapProps {
-  pickup: LocationPoint;
+  pickup?: LocationPoint | null;
   dropoff?: LocationPoint | null;
   routeGeometry?: [number, number][];
   driverLocation?: { lat: number; lng: number; heading?: number } | null;
@@ -19,31 +19,32 @@ interface CrabMapProps {
 
 // Controller tự động căn chỉnh khung hình theo lộ trình
 const MapBoundsController: React.FC<{
-  pickup: LocationPoint;
+  pickup?: LocationPoint | null;
   dropoff?: LocationPoint | null;
   routeGeometry?: [number, number][];
 }> = ({ pickup, dropoff, routeGeometry }) => {
   const map = useMap();
 
   useEffect(() => {
+    let bounds: L.LatLngBounds | null = null;
+
     if (routeGeometry && routeGeometry.length > 0) {
-      const bounds = L.latLngBounds(routeGeometry);
+      bounds = L.latLngBounds(routeGeometry);
+    } else {
+      if (pickup) bounds = L.latLngBounds([[pickup.lat, pickup.lng]]);
+      if (dropoff) {
+        if (bounds) bounds.extend([dropoff.lat, dropoff.lng]);
+        else bounds = L.latLngBounds([[dropoff.lat, dropoff.lng]]);
+      }
+    }
+
+    if (bounds) {
       map.fitBounds(bounds, {
         padding: [60, 60],
         maxZoom: 16,
         animate: true,
       });
-    } else if (dropoff) {
-      const bounds = L.latLngBounds([
-        [pickup.lat, pickup.lng],
-        [dropoff.lat, dropoff.lng],
-      ]);
-      map.fitBounds(bounds, {
-        padding: [80, 80],
-        maxZoom: 16,
-        animate: true,
-      });
-    } else {
+    } else if (pickup) {
       map.setView([pickup.lat, pickup.lng], 15, { animate: true });
     }
   }, [pickup, dropoff, routeGeometry, map]);
@@ -74,7 +75,7 @@ export const CrabMap: React.FC<CrabMapProps> = ({
   return (
     <div className={`relative overflow-hidden rounded-3xl ${className}`}>
       <MapContainer
-        center={[pickup.lat, pickup.lng]}
+        center={pickup ? [pickup.lat, pickup.lng] : [10.762622, 106.660172]} // Default to HCM city if no pickup
         zoom={15}
         scrollWheelZoom={true}
         className="w-full h-full z-0"
@@ -93,8 +94,8 @@ export const CrabMap: React.FC<CrabMapProps> = ({
 
         {/* Markers */}
         <PickupDropoffMarkers
-          pickup={pickup}
-          dropoff={dropoff}
+          pickup={pickup || undefined}
+          dropoff={dropoff || undefined}
           onPickupChange={onPickupChange}
           onDropoffChange={onDropoffChange}
         />

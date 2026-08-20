@@ -48,7 +48,9 @@ export class UsersService implements OnModuleInit {
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ 
       where: { email },
-      relations: ['driverProfile']
+      relations: {
+        driverProfile: true,
+      }
     });
   }
 

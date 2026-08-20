@@ -422,7 +422,12 @@ export class OrdersService {
   async getTripDetails(tripId: string, userId: string, role: Role): Promise<Trip> {
     const trip = await this.ordersRepository.findOne({
       where: { id: tripId },
-      relations: ['customer', 'driver', 'driver.driverProfile'],
+      relations: {
+        customer: true,
+        driver: {
+          driverProfile: true,
+        },
+      },
     });
 
     if (!trip) throw new NotFoundException('Trip not found');
@@ -448,7 +453,11 @@ export class OrdersService {
     return this.ordersRepository.find({
       where: { customer_id: customerId },
       order: { created_at: 'DESC' },
-      relations: ['driver', 'driver.driverProfile'],
+      relations: {
+        driver: {
+          driverProfile: true,
+        },
+      },
     });
   }
 

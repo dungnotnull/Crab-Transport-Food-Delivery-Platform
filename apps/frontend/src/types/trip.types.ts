@@ -49,10 +49,13 @@ export interface Trip {
     full_name: string;
     phone_number?: string;
     avatar_url?: string;
-    license_plate?: string;
-    vehicle_brand?: string;
-    vehicle_type?: string;
-    average_rating?: number;
+    driverProfile?: {
+      license_plate?: string;
+      vehicle_brand?: string;
+      vehicle_type?: string;
+      average_rating?: number;
+      vehicle_image?: string;
+    };
   };
   created_at?: string;
   updated_at?: string;

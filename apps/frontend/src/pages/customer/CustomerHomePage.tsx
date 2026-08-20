@@ -17,7 +17,9 @@ export const CustomerHomePage: React.FC = () => {
     driverLocation,
     activeTrip,
     isSearchingDriver,
+    setPickup,
     setDropoff,
+    setActiveTrip,
     setIsSearchingDriver,
     resetBooking,
   } = useTripStore();

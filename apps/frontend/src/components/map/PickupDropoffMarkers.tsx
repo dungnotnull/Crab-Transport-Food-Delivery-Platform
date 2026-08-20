@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { LocationPoint } from '../../types/trip.types';
 
 interface PickupDropoffMarkersProps {
-  pickup: LocationPoint;
+  pickup?: LocationPoint;
   dropoff?: LocationPoint | null;
   onPickupChange?: (lat: number, lng: number) => void;
   onDropoffChange?: (lat: number, lng: number) => void;
@@ -48,8 +48,9 @@ export const PickupDropoffMarkers: React.FC<PickupDropoffMarkersProps> = ({
   return (
     <>
       {/* Pickup Marker */}
-      <Marker
-        position={[pickup.lat, pickup.lng]}
+      {pickup && (
+        <Marker
+          position={[pickup.lat, pickup.lng]}
         icon={pickupIcon}
         draggable={!!onPickupChange}
         eventHandlers={{
@@ -67,6 +68,7 @@ export const PickupDropoffMarkers: React.FC<PickupDropoffMarkersProps> = ({
           </div>
         </Popup>
       </Marker>
+      )}
 
       {/* Dropoff Marker */}
       {dropoff && (
