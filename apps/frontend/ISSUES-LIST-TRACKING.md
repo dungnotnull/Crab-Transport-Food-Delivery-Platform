@@ -16,6 +16,10 @@ File này được Frontend Agent và lập trình viên quản lý để theo d
 | FE-006 | Customer/Driver hiển thị fallback giả: giá, vị trí, hồ sơ xe, trạng thái online và tự động nhận chuyến | Customer/Driver pages and stores | Critical | Resolved | Xóa mock/fallback nghiệp vụ; hiển thị loading/empty/error và chỉ cập nhật state sau API/WebSocket thành công. |
 | FE-007 | Hủy chuyến chỉ reset state local, không gọi API; modal nhận cuốc gọi API trùng với dashboard | `CustomerHomePage.tsx`, `TripOfferModal.tsx` | High | Resolved | Gọi `POST /trips/:id/cancel` trước khi reset và giao quyền accept cho dashboard để tránh request duplicate. |
 | FE-008 | Form/toast/icon button thiếu hỗ trợ accessibility và giảm chuyển động | Common components and auth/customer/driver UI | Medium | Resolved | Bổ sung `name`, `autocomplete`, `aria-*`, focus-visible, live region, trạng thái loading và reduced-motion. |
+| FE-009 | DriverDashboard thiếu listener `driver:trip_cancelled_offer` và `trip:status_changed` khi khách hủy | `DriverDashboardPage.tsx` | High | Resolved | Đã thêm listener `driver:trip_cancelled_offer` và `trip:status_changed` để tự động đóng popup nhận cuốc và reset trạng thái khi cuốc bị hủy. |
+| FE-010 | Multi-tab session dính chung dữ liệu khi test 1 Khách - Nhiều Tài xế | `authStore.ts`, `api.ts`, `socket.service.ts` | Medium | Resolved | Chuyển lưu trữ Auth sang `sessionStorage` (ưu tiên) giúp mỗi tab trình duyệt duy trì phiên đăng nhập riêng biệt. |
+| FE-012 | Trắng màn hình sau khi tài xế nhận cuốc do API trả về GeoJSON Point không có lat/lng trực tiếp | `trip.service.ts`, `CrabMap.tsx`, `PickupDropoffMarkers.tsx` | Critical | Resolved | Bổ sung hàm `normalizeTrip` & `normalizeLocationPoint` chuyển đổi GeoJSON sang `{ lat, lng }` an toàn, thêm guard `isValidCoord` trong tất cả các map components. |
+
 
 ---
 

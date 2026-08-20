@@ -58,7 +58,7 @@ export const DriverDashboardPage: React.FC = () => {
         socketService.joinRoom(`trip_${trip.id}`);
       }
     }).catch(() => {
-      showToast('Chưa thể khôi phục chuyến đang hoạt động.', 'warning');
+      // Bình thường khi tài xế chưa có cuốc nào đang chạy
     });
   }, [setActiveTripId, showToast]);
 
@@ -96,12 +96,74 @@ export const DriverDashboardPage: React.FC = () => {
       setIncomingOffer(data);
     };
 
+    // Lắng nghe khi cuốc xe bị tài xế khác nhận trước hoặc khách hủy (BUG-014, FEAT-001)
+    const handleTripCancelledOffer = (data: { tripId: string }) => {
+      const currentOffer = useDriverStore.getState().incomingOffer;
+      if (currentOffer && (!data.tripId || currentOffer.tripId === data.tripId)) {
+        setIncomingOffer(null);
+        showToast('Cuốc xe đã được tài xế khác tiếp nhận hoặc đã bị hủy.', 'info');
+      }
+    };
+
+    // Lắng nghe cập nhật trạng thái cuốc xe (từ Simulator hoặc Khách hủy) (BUG-014, FEAT-002)
+    const handleTripStatusChanged = async (data: any) => {
+      if (data.status === 'CANCELLED') {
+        showToast('Chuyến đi đã bị hủy!', 'warning');
+        setActiveTrip(null);
+        setActiveTripId(null);
+        setTripStep(0);
+        return;
+      }
+
+      if (data.status === 'ACCEPTED') {
+        setTripStep(1);
+      } else if (data.status === 'ARRIVED_AT_PICKUP') {
+        setTripStep(2);
+        showToast('📍 Đã đến điểm đón khách!', 'info');
+      } else if (data.status === 'IN_TRANSIT') {
+        setTripStep(3);
+        showToast('🚀 Đang trong hành trình chở khách...', 'info');
+      } else if (data.status === 'ARRIVED_AT_DESTINATION') {
+        setTripStep(4);
+        showToast('🏁 Đã đến điểm trả!', 'info');
+      } else if (data.status === 'COMPLETED') {
+        setActiveTrip(null);
+        setActiveTripId(null);
+        setTripStep(0);
+        showToast('🎉 Chuyến đi đã hoàn tất thành công! Doanh thu đã được cộng vào ví.', 'success');
+        driverService.getWalletDetails().then((wallet) => {
+          if (wallet && wallet.balance !== undefined) setWalletBalance(Number(wallet.balance));
+        }).catch(() => {});
+        return;
+      }
+
+      if (data.tripId) {
+        try {
+          const trip = await tripService.getTripDetails(data.tripId);
+          setActiveTrip(trip);
+        } catch {}
+      }
+    };
+
+    // Lắng nghe stream tọa độ xe di chuyển (từ Simulator hoặc GPS) (FEAT-002)
+    const handleLocationStream = (data: any) => {
+      if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+        setDriverLocation({ lat: data.lat, lng: data.lng });
+      }
+    };
+
     socketService.on('driver:trip_offer', handleTripOffer);
+    socketService.on('driver:trip_cancelled_offer', handleTripCancelledOffer);
+    socketService.on('trip:status_changed', handleTripStatusChanged);
+    socketService.on('trip:location_stream', handleLocationStream);
     
     return () => {
       socketService.off('driver:trip_offer', handleTripOffer);
+      socketService.off('driver:trip_cancelled_offer', handleTripCancelledOffer);
+      socketService.off('trip:status_changed', handleTripStatusChanged);
+      socketService.off('trip:location_stream', handleLocationStream);
     };
-  }, [setIncomingOffer]);
+  }, [setIncomingOffer, setActiveTripId, showToast]);
 
   // Bật / Tắt trực tuyến (Gọi trực tiếp DB PostgreSQL)
   const handleToggleOnline = async () => {
@@ -322,7 +384,10 @@ export const DriverDashboardPage: React.FC = () => {
         <Card className="p-6 border-2 border-emerald-500 shadow-xl flex flex-col gap-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <Badge variant="warning" size="md">Đang Thực Hiện Chuyến Đi</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="warning" size="md">Đang Thực Hiện Chuyến Đi</Badge>
+                <Badge variant="info" size="sm">🤖 Auto Simulator</Badge>
+              </div>
               <h3 className="text-lg font-black text-slate-900 mt-1">{stepLabels[tripStep]}</h3>
             </div>
             <span className="text-xl font-black text-[#00B14F]">
@@ -332,22 +397,38 @@ export const DriverDashboardPage: React.FC = () => {
 
           <div className="flex flex-col gap-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-              <MapPin className="w-4 h-4 text-[#00B14F]" />
-              <span>Đón khách tại: <strong>{activeTrip?.pickup_location?.address || 'Địa chỉ đang cập nhật'}</strong></span>
+              <MapPin className="w-4 h-4 text-[#00B14F] shrink-0" />
+              <span className="truncate">Đón khách: <strong>{activeTrip?.pickup_location?.address || 'Địa chỉ đang cập nhật'}</strong></span>
             </div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <Navigation className="w-4 h-4 text-[#EF4444]" />
-              <span>Trả khách tại: <strong>{activeTrip?.dropoff_location?.address || 'Địa chỉ đang cập nhật'}</strong></span>
+              <Navigation className="w-4 h-4 text-[#EF4444] shrink-0" />
+              <span className="truncate">Trả khách: <strong>{activeTrip?.dropoff_location?.address || 'Địa chỉ đang cập nhật'}</strong></span>
             </div>
           </div>
 
+          {/* Live Navigation Map for Driver */}
+          <div className="h-64 w-full rounded-2xl overflow-hidden border border-slate-200 relative shadow-inner">
+            <CrabMap
+              pickup={activeTrip?.pickup_location || null}
+              dropoff={activeTrip?.dropoff_location || null}
+              driverLocation={driverLocation || undefined}
+              className="w-full h-full"
+            />
+          </div>
+
           {/* Advance Step Action */}
-          <Button size="lg" isLoading={isUpdatingTrip} onClick={handleAdvanceDriverStep} className="w-full font-black text-base shadow-lg">
-            {tripStep === 1 && '📍 Đã đến điểm đón'}
-            {tripStep === 2 && '🚀 Khách đã lên xe (Bắt đầu đi)'}
-            {tripStep === 3 && `🏁 Đã đến điểm trả${activeTrip ? ` (Thu tiền ${formatCurrency(activeTrip.total_fare)})` : ''}`}
-            {tripStep === 4 && '✅ Hoàn thành chuyến đi'}
-          </Button>
+          <div className="flex flex-col gap-1.5">
+            <Button size="lg" isLoading={isUpdatingTrip} onClick={handleAdvanceDriverStep} className="w-full font-black text-base shadow-lg">
+              {tripStep === 1 && '📍 Đã đến điểm đón'}
+              {tripStep === 2 && '🚀 Khách đã lên xe (Bắt đầu đi)'}
+              {tripStep === 3 && `🏁 Đã đến điểm trả${activeTrip ? ` (Thu tiền ${formatCurrency(activeTrip.total_fare)})` : ''}`}
+              {tripStep === 4 && '✅ Hoàn thành chuyến đi'}
+              {tripStep === 0 && 'Chờ trạng thái tiếp theo...'}
+            </Button>
+            <p className="text-[11px] text-slate-400 text-center">
+              💡 Hệ thống Simulator tự động chuyển chặng và cập nhật vị trí GPS trên bản đồ
+            </p>
+          </div>
         </Card>
       ) : (
         /* Standby Card */

@@ -27,27 +27,71 @@ export const CustomerHomePage: React.FC = () => {
 
   const [isRatingOpen, setIsRatingOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showFleetSimulation, setShowFleetSimulation] = useState(true);
   const { showToast } = useToast();
+
+  // Đội xe mô phỏng rải rác quanh trung tâm Sài Gòn / Halo Building
+  const [nearbyFleet, setNearbyFleet] = useState<any[]>([
+    { id: 'sim-bike-1', lat: 10.7838, lng: 106.6968, heading: 45, vehicleType: 'BIKE', driverName: 'Nguyễn Văn Nam (CrabBike)', licensePlate: '59P1-889.12' },
+    { id: 'sim-car4-1', lat: 10.7812, lng: 106.6942, heading: 120, vehicleType: 'CAR_4', driverName: 'Trần Tuấn Anh (CrabCar 4C)', licensePlate: '51H-678.90' },
+    { id: 'sim-car4-2', lat: 10.7850, lng: 106.6980, heading: 210, vehicleType: 'CAR_4', driverName: 'Lê Hoàng Hải (CrabCar 4C)', licensePlate: '51K-123.45' },
+    { id: 'sim-car7-1', lat: 10.7798, lng: 106.6995, heading: 330, vehicleType: 'CAR_7', driverName: 'Phạm Đức Long (CrabCar 7C)', licensePlate: '59A-999.88' },
+    { id: 'sim-bike-2', lat: 10.7865, lng: 106.6935, heading: 90, vehicleType: 'BIKE', driverName: 'Võ Minh Trí (CrabBike)', licensePlate: '59N2-456.78' },
+  ]);
+
+  // Hiệu ứng di chuyển nhẹ nhàng của đội xe khi ở màn hình chờ
+  useEffect(() => {
+    if (!showFleetSimulation || (activeTrip && activeTrip.status !== 'FINDING_DRIVER')) return;
+    const interval = setInterval(() => {
+      setNearbyFleet((prev) =>
+        prev.map((d) => {
+          const deltaLat = (Math.random() - 0.5) * 0.0003;
+          const deltaLng = (Math.random() - 0.5) * 0.0003;
+          const newHeading = Math.floor(Math.atan2(deltaLng, deltaLat) * (180 / Math.PI));
+          return {
+            ...d,
+            lat: d.lat + deltaLat,
+            lng: d.lng + deltaLng,
+            heading: (newHeading + 360) % 360,
+          };
+        })
+      );
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showFleetSimulation, activeTrip]);
 
   // 1. Fetch active trip on mount to restore state
   useEffect(() => {
-    tripService.getActiveTrip().then((trip) => {
-      if (trip) {
-        setActiveTrip(trip);
-        // Khôi phục route nếu cần, ở đây tạm set dropoff & pickup
-        setPickup(trip.pickup_location);
-        setDropoff(trip.dropoff_location);
-        if (trip.status === 'FINDING_DRIVER') {
-          setIsSearchingDriver(true);
-        } else {
-          setIsSearchingDriver(false);
+    tripService
+      .getActiveTrip()
+      .then((trip) => {
+        if (trip) {
+          setActiveTrip(trip);
+          setPickup(trip.pickup_location);
+          setDropoff(trip.dropoff_location);
+          if (trip.status === 'FINDING_DRIVER') {
+            setIsSearchingDriver(true);
+          } else {
+            setIsSearchingDriver(false);
+          }
+
+          // Tự động tải lại đường dẫn Polyline nếu đang trong chuyến
+          if (trip.pickup_location && trip.dropoff_location) {
+            tripService
+              .previewTrip(trip.pickup_location, trip.dropoff_location, trip.service_type || 'CAR_4')
+              .then((preview) => {
+                useTripStore.getState().setRoutePreview(preview);
+              })
+              .catch(() => {});
+          }
+
+          // Join socket room
+          socketService.joinRoom(`trip_${trip.id}`);
         }
-        // Join socket room
-        socketService.joinRoom(`trip_${trip.id}`);
-      }
-    }).catch(() => {
-      // no active trip
-    });
+      })
+      .catch(() => {
+        // no active trip
+      });
   }, [setActiveTrip, setPickup, setDropoff, setIsSearchingDriver]);
 
   // 2. Listen to socket events
@@ -152,11 +196,32 @@ export const CustomerHomePage: React.FC = () => {
 
       {/* Main Map Stage */}
       <div className="flex-1 w-full h-full absolute md:relative inset-0 z-0">
+        {/* Floating Fleet Status Badge */}
+        {!activeTrip && (
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-md shadow-lg border border-emerald-100 rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-700">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00B14F]"></span>
+            </span>
+            <span>5 Tài xế trực tuyến quanh bạn</span>
+            <button
+              type="button"
+              onClick={() => setShowFleetSimulation(!showFleetSimulation)}
+              className={`ml-1 text-[10px] px-2 py-0.5 rounded-full transition-colors font-bold ${
+                showFleetSimulation ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {showFleetSimulation ? 'Đang mô phỏng' : 'Tắt'}
+            </button>
+          </div>
+        )}
+
         <CrabMap
           pickup={pickup}
           dropoff={dropoff}
           routeGeometry={routePreview?.geometry}
           driverLocation={driverLocation}
+          nearbyDrivers={showFleetSimulation && !activeTrip ? nearbyFleet : undefined}
           onMapClick={handleMapClick}
           onPickupChange={(lat, lng) =>
             useTripStore.getState().setPickup({ lat, lng, address: 'Điểm đón tùy chỉnh' })

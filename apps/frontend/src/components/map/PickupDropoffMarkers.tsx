@@ -39,6 +39,9 @@ const dropoffIcon = L.divIcon({
   iconAnchor: [16, 16],
 });
 
+const isValidCoord = (p?: LocationPoint | null): p is LocationPoint =>
+  Boolean(p && typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng));
+
 export const PickupDropoffMarkers: React.FC<PickupDropoffMarkersProps> = ({
   pickup,
   dropoff,
@@ -48,30 +51,32 @@ export const PickupDropoffMarkers: React.FC<PickupDropoffMarkersProps> = ({
   return (
     <>
       {/* Pickup Marker */}
-      {pickup && (
+      {isValidCoord(pickup) && (
         <Marker
           position={[pickup.lat, pickup.lng]}
-        icon={pickupIcon}
-        draggable={!!onPickupChange}
-        eventHandlers={{
-          dragend: (e) => {
-            const marker = e.target;
-            const position = marker.getLatLng();
-            onPickupChange?.(position.lat, position.lng);
-          },
-        }}
-      >
-        <Popup className="custom-popup">
-          <div className="text-xs font-semibold text-slate-800 p-1">
-            <span className="text-[#00B14F] font-bold">📍 Điểm đón:</span>
-            <p className="mt-0.5 text-slate-600">{pickup.address || 'Điểm đón đã chọn'}</p>
-          </div>
-        </Popup>
-      </Marker>
+          icon={pickupIcon}
+          draggable={!!onPickupChange}
+          eventHandlers={{
+            dragend: (e) => {
+              const marker = e.target;
+              const position = marker.getLatLng();
+              if (position && !isNaN(position.lat) && !isNaN(position.lng)) {
+                onPickupChange?.(position.lat, position.lng);
+              }
+            },
+          }}
+        >
+          <Popup className="custom-popup">
+            <div className="text-xs font-semibold text-slate-800 p-1">
+              <span className="text-[#00B14F] font-bold">📍 Điểm đón:</span>
+              <p className="mt-0.5 text-slate-600">{pickup.address || 'Điểm đón đã chọn'}</p>
+            </div>
+          </Popup>
+        </Marker>
       )}
 
       {/* Dropoff Marker */}
-      {dropoff && (
+      {isValidCoord(dropoff) && (
         <Marker
           position={[dropoff.lat, dropoff.lng]}
           icon={dropoffIcon}
@@ -80,7 +85,9 @@ export const PickupDropoffMarkers: React.FC<PickupDropoffMarkersProps> = ({
             dragend: (e) => {
               const marker = e.target;
               const position = marker.getLatLng();
-              onDropoffChange?.(position.lat, position.lng);
+              if (position && !isNaN(position.lat) && !isNaN(position.lng)) {
+                onDropoffChange?.(position.lat, position.lng);
+              }
             },
           }}
         >

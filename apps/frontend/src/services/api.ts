@@ -8,10 +8,18 @@ export const apiClient = axios.create({
   timeout: 10000,
 });
 
+const getToken = () => sessionStorage.getItem('crab_access_token') || localStorage.getItem('crab_access_token');
+const clearAuth = () => {
+  sessionStorage.removeItem('crab_access_token');
+  sessionStorage.removeItem('crab_user');
+  localStorage.removeItem('crab_access_token');
+  localStorage.removeItem('crab_user');
+};
+
 // Gắn Token tự động vào Header nếu có
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('crab_access_token');
+    const token = getToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,8 +34,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Token hết hạn hoặc không hợp lệ -> xóa token
-      localStorage.removeItem('crab_access_token');
-      localStorage.removeItem('crab_user');
+      clearAuth();
     }
     return Promise.reject(error);
   }
