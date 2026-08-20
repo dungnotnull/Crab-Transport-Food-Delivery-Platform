@@ -5,11 +5,18 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/entities/user.entity';
 import { BookOrderDto } from './dto/book-trip.dto';
+import { DriversService } from '../drivers/drivers.service';
 
 @Controller('api/v1/trips')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService, private readonly driversService: DriversService) {}
+
+  @Get('test-match')
+  async testMatch() {
+    const drivers = await this.driversService.findAvailableDrivers(106.68937, 10.782363, 'CAR_4', 3000, 5);
+    return { count: drivers.length, drivers };
+  }
 
   @Post('preview')
   @Roles(Role.CUSTOMER)

@@ -65,7 +65,7 @@ export class OrdersService {
     const route = await this.routingService.getRoute(pickup, dropoff);
     // Distance limit removed to allow booking anywhere
 
-    return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
+    const savedOrder = await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
       const basePricing = await this.pricingService.calculateFare(route.distance, vehicleType);
       let finalPricing = basePricing;
 
@@ -111,13 +111,13 @@ export class OrdersService {
         estimated_duration: Math.ceil(route.duration / 60),
       });
 
-      const savedOrder = await transactionalEntityManager.save(trip);
-
-      this.eventEmitter.emit('trip.created', savedOrder);
-      this.logger.log(`Trip ${savedOrder.id} booked. Fare: ${savedOrder.total_fare}`);
-
-      return savedOrder;
+      return await transactionalEntityManager.save(trip);
     });
+
+    this.eventEmitter.emit('trip.created', savedOrder);
+    this.logger.log(`Trip ${savedOrder.id} booked. Fare: ${savedOrder.total_fare}`);
+
+    return savedOrder;
   }
 
   @Cron('0 * * * * *') // Run every minute
@@ -164,7 +164,12 @@ export class OrdersService {
     for (const trip of acceptedOrders) {
       // SLA = estimated_duration + 5 minutes
       const slaMinutes = trip.estimated_duration + 5;
-      const slaTimeLimit = new Date(trip.updated_at.getTime() + slaMinutes * 60 * 1000);
+      
+      // Fix TypeORM parsing UTC without timezone as local time
+      const tzOffsetMs = new Date().getTimezoneOffset() * 60 * 1000;
+      const correctUpdatedAt = new Date(trip.updated_at.getTime() - tzOffsetMs);
+      
+      const slaTimeLimit = new Date(correctUpdatedAt.getTime() + slaMinutes * 60 * 1000);
       
       if (new Date() > slaTimeLimit) {
         this.logger.warn(`Trip ${trip.id} SLA exceeded by driver ${trip.driver_id}. Cancelling...`);
@@ -242,7 +247,7 @@ export class OrdersService {
   }
 
   async acceptOrder(tripId: string, driverId: string): Promise<Trip> {
-    return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
+    const acceptedTrip = await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
       const trip = await transactionalEntityManager
         .createQueryBuilder(Trip, 'trip')
         .setLock('pessimistic_write')
@@ -274,6 +279,14 @@ export class OrdersService {
       this.logger.log(`Trip ${trip.id} accepted by driver ${driverId}`);
       return trip;
     });
+
+    this.trackingGateway.server.to(`trip_${acceptedTrip.id}`).emit('trip:status_changed', {
+      tripId: acceptedTrip.id,
+      status: OrderStatus.ACCEPTED,
+      timestamp: new Date().toISOString(),
+    });
+
+    return acceptedTrip;
   }
 
   async cancelOrder(tripId: string, userId: string, role: Role): Promise<Trip> {

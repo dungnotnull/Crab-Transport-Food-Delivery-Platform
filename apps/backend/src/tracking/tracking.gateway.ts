@@ -35,6 +35,14 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       const payload = this.jwtService.verify(token);
       client.data.user = payload; // Attach user data to socket
+      
+      // Auto join personal room based on role
+      if (payload.role === 'DRIVER') {
+        client.join(`driver_${payload.sub}`);
+      } else {
+        client.join(`customer_${payload.sub}`);
+      }
+
       this.logger.log(`Client connected: ${client.id} (User: ${payload.sub})`);
     } catch (err) {
       this.logger.warn(`Unauthorized connection attempt: ${client.id}`);

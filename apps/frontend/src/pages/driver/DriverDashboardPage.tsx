@@ -105,18 +105,11 @@ export const DriverDashboardPage: React.FC = () => {
 
 
 
-  const handleAcceptOffer = async (tripId: string) => {
-    try {
-      await driverService.acceptTrip(tripId);
-      setIncomingOffer(null);
-      setActiveTripId(tripId);
-      setTripStep(1); // Bước 1: Đang đến điểm đón
-      socketService.joinRoom(`trip_${tripId}`);
-      showToast('Đã nhận chuyến thành công!', 'success');
-    } catch (err: any) {
-      setIncomingOffer(null);
-      showToast(err.response?.data?.message || 'Cuốc xe đã bị nhận bởi tài xế khác', 'error');
-    }
+  const handleAcceptOffer = (tripId: string) => {
+    setIncomingOffer(null);
+    setActiveTripId(tripId);
+    setTripStep(1); // Bước 1: Đang đến điểm đón
+    socketService.joinRoom(`trip_${tripId}`);
   };
 
   const handleDeclineOffer = () => {

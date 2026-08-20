@@ -57,11 +57,11 @@ export class DriversService {
       .andWhere('profile.average_rating >= :minRating', { minRating: 3.5 })
       .andWhere('profile.vehicle_type = :vehicleType', { vehicleType })
       .andWhere(
-        'ST_DWithin(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography, :radius)',
+        'ST_DWithin("driverLocation"."current_location"::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography, :radius)',
         { origin: JSON.stringify(origin), radius: radiusInMeters }
       )
       .orderBy(
-        'ST_Distance(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography) / POWER(profile.average_rating, 2)'
+        'ST_Distance("driverLocation"."current_location"::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography) / POWER(profile.average_rating, 2)'
       )
       .limit(limit)
       .getMany();

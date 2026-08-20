@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTripStore } from '../../stores/tripStore';
 import { tripService } from '../../services/trip.service';
+import { socketService } from '../../services/socket.service';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
@@ -147,6 +148,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         paymentMethod,
       });
 
+      socketService.joinRoom(`trip_${trip.id}`);
       setActiveTrip(trip);
       setIsSearchingDriver(true);
       onStartFindingDriver();

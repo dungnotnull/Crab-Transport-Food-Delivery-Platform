@@ -20,7 +20,7 @@ export class WalletsService {
     const existing = await repo.findOne({ where: { driver_id: driverId } });
     if (existing) return existing;
     
-    const wallet = repo.create({ driver_id: driverId, balance: 0 });
+    const wallet = repo.create({ driver_id: driverId, balance: 500000 });
     return await repo.save(wallet);
   }
 

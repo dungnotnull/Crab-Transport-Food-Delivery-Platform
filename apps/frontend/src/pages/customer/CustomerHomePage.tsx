@@ -98,13 +98,27 @@ export const CustomerHomePage: React.FC = () => {
     }
   };
 
-  const handleCancelSearch = () => {
+  const handleCancelSearch = async () => {
+    if (activeTrip) {
+      try {
+        await tripService.cancelTrip(activeTrip.id);
+      } catch (e) {
+        console.error('Failed to cancel trip', e);
+      }
+    }
     setIsSearchingDriver(false);
     resetBooking();
     showToast('Đã hủy tìm kiếm tài xế', 'warning');
   };
 
-  const handleCancelTrip = () => {
+  const handleCancelTrip = async () => {
+    if (activeTrip) {
+      try {
+        await tripService.cancelTrip(activeTrip.id);
+      } catch (e) {
+        console.error('Failed to cancel trip', e);
+      }
+    }
     resetBooking();
     showToast('Đã hủy chuyến đi thành công', 'warning');
   };
