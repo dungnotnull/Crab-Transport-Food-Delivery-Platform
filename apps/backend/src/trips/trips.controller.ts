@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Body, UseGuards, Req, Param } from '@nestjs/common';
+import { Controller, Post, Patch, Get, Body, UseGuards, Req, Param } from '@nestjs/common';
 import { OrdersService } from './trips.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -60,5 +60,17 @@ export class OrdersController {
   ) {
     const driverId = req.user.id;
     return this.ordersService.updateStatus(tripId, driverId, status);
+  }
+
+  @Get('driver/history')
+  @Roles(Role.DRIVER)
+  async getDriverHistory(@Req() req: any) {
+    return this.ordersService.getDriverHistory(req.user.id);
+  }
+
+  @Get(':id')
+  @Roles(Role.CUSTOMER, Role.DRIVER)
+  async getTripDetails(@Req() req: any, @Param('id') id: string) {
+    return this.ordersService.getTripDetails(id, req.user.id, req.user.role);
   }
 }

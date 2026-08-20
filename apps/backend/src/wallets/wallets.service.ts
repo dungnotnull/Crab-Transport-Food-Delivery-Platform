@@ -32,6 +32,16 @@ export class WalletsService {
     return wallet;
   }
 
+  async getWalletDetails(driverId: string) {
+    const wallet = await this.getWallet(driverId);
+    const transactions = await this.transactionsRepository.find({
+      where: { driver_id: driverId },
+      order: { created_at: 'DESC' },
+      take: 50,
+    });
+    return { ...wallet, transactions };
+  }
+
   async updateWalletStatus(driverId: string, status: WalletStatus): Promise<DriverWallet> {
     const wallet = await this.walletsRepository.findOne({ where: { driver_id: driverId } });
     if (!wallet) {

@@ -418,4 +418,29 @@ export class OrdersService {
       return trip;
     });
   }
+
+  async getTripDetails(tripId: string, userId: string, role: Role): Promise<Trip> {
+    const trip = await this.ordersRepository.findOne({
+      where: { id: tripId },
+      relations: ['customer', 'driver', 'driver.driverProfile'],
+    });
+
+    if (!trip) throw new NotFoundException('Trip not found');
+
+    if (role === Role.CUSTOMER && trip.customer_id !== userId) {
+      throw new ForbiddenException('Not your trip');
+    }
+    if (role === Role.DRIVER && trip.driver_id && trip.driver_id !== userId) {
+      throw new ForbiddenException('Not your trip');
+    }
+
+    return trip;
+  }
+
+  async getDriverHistory(driverId: string): Promise<Trip[]> {
+    return this.ordersRepository.find({
+      where: { driver_id: driverId },
+      order: { created_at: 'DESC' },
+    });
+  }
 }
