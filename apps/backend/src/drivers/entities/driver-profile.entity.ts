@@ -24,6 +24,12 @@ export class DriverProfile {
   @Column('varchar', { length: 50, nullable: true })
   color: string;
 
+  @Column('varchar', { length: 100, nullable: true })
+  vehicle_brand: string;
+
+  @Column('text', { nullable: true })
+  vehicle_image: string;
+
   @Column('decimal', { precision: 3, scale: 2, default: 5.0 })
   average_rating: number;
 

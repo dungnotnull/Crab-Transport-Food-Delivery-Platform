@@ -32,4 +32,11 @@ export class RegisterDto {
 
   @ValidateIf(o => o.role === Role.DRIVER)
   color?: string;
+
+  @ValidateIf(o => o.role === Role.DRIVER)
+  @IsNotEmpty()
+  vehicle_brand?: string;
+
+  @ValidateIf(o => o.role === Role.DRIVER)
+  vehicle_image?: string;
 }

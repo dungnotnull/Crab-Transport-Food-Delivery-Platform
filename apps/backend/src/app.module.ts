@@ -16,6 +16,7 @@ import { SimulatorModule } from './simulator/simulator.module';
 import { SystemConfigsModule } from './system-configs/system-configs.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { WalletsModule } from './wallets/wallets.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { WalletsModule } from './wallets/wallets.module';
     SystemConfigsModule,
     CouponsModule,
     WalletsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

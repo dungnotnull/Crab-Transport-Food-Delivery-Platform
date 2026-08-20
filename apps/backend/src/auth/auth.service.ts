@@ -47,8 +47,10 @@ export class AuthService {
         const driverProfile = queryRunner.manager.create(DriverProfile, {
           user_id: savedUser.id,
           license_plate: registerDto.license_plate,
-          vehicle_type: registerDto.vehicle_type,
+          vehicle_type: registerDto.vehicle_type as any,
           color: registerDto.color,
+          vehicle_brand: registerDto.vehicle_brand,
+          vehicle_image: registerDto.vehicle_image,
         });
         await queryRunner.manager.save(driverProfile);
       }
