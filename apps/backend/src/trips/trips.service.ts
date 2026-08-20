@@ -286,6 +286,14 @@ export class TripsService {
       timestamp: new Date().toISOString(),
     });
 
+    // Notify all other drivers to dismiss their popups
+    this.trackingGateway.server.emit('driver:trip_cancelled_offer', {
+      tripId: acceptedTrip.id
+    });
+
+    // Automatically trigger the simulator for testing
+    this.eventEmitter.emit('trip.accepted', acceptedTrip);
+
     return acceptedTrip;
   }
 
@@ -331,7 +339,28 @@ export class TripsService {
       }
 
       this.logger.log(`Trip ${trip.id} cancelled by ${role} ${userId}`);
-      return transactionalEntityManager.save(trip);
+      const savedTrip = await transactionalEntityManager.save(trip);
+
+      if (savedTrip.status === TripStatus.CANCELLED) {
+        this.trackingGateway.server.to(`trip_${trip.id}`).emit('trip:status_changed', {
+          tripId: trip.id,
+          status: TripStatus.CANCELLED,
+          reason: role === Role.CUSTOMER ? 'CUSTOMER_CANCELLED' : 'SYSTEM_CANCELLED'
+        });
+        
+        // Emit global event to dismiss popup for drivers currently receiving the offer
+        this.trackingGateway.server.emit('driver:trip_cancelled_offer', {
+          tripId: trip.id
+        });
+      } else if (savedTrip.status === TripStatus.FINDING_DRIVER) {
+        this.trackingGateway.server.to(`trip_${trip.id}`).emit('trip:status_changed', {
+          tripId: trip.id,
+          status: TripStatus.FINDING_DRIVER,
+          reason: 'DRIVER_CANCELLED'
+        });
+      }
+
+      return savedTrip;
     });
   }
 

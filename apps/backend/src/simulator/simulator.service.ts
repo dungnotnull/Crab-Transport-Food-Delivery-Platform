@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { RoutingService } from '../routing/routing.service';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { TripsService } from '../trips/trips.service';
@@ -16,6 +17,16 @@ export class SimulatorService {
     private tripsService: TripsService,
     private driversService: DriversService,
   ) {}
+
+  @OnEvent('trip.accepted')
+  async handleTripAccepted(trip: any) {
+    this.logger.log(`[Simulator] Auto-starting simulation for accepted trip ${trip.id}`);
+    try {
+      await this.simulateTrip(trip.id);
+    } catch (error) {
+      this.logger.error(`[Simulator] Error simulating trip ${trip.id}:`, error);
+    }
+  }
 
   async simulateTrip(tripId: string) {
     const trip = await this.tripsService['tripsRepository'].findOne({ where: { id: tripId } });
