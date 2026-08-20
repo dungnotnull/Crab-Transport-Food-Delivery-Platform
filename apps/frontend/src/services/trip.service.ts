@@ -16,7 +16,7 @@ export const tripService = {
       pickup: { lat: pickup.lat, lng: pickup.lng },
       dropoff: { lat: dropoff.lat, lng: dropoff.lng },
       vehicleType,
-      coupon_code: couponCode,
+      coupon_code: couponCode || undefined,
     });
 
     const data = res.data.data;
@@ -65,7 +65,7 @@ export const tripService = {
       pickup: { lat: dto.pickup.lat, lng: dto.pickup.lng },
       dropoff: { lat: dto.dropoff.lat, lng: dto.dropoff.lng },
       vehicleType: dto.vehicleType || 'CAR_4',
-      coupon_code: dto.coupon_code,
+      coupon_code: dto.coupon_code || undefined,
       paymentMethod: dto.paymentMethod || 'CASH',
     });
 
