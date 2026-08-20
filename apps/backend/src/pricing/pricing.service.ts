@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SystemConfigsService } from '../system-configs/system-configs.service';
+import { VehicleType } from '../common/enums/vehicle-type.enum';
 
 @Injectable()
 export class PricingService {
@@ -17,20 +18,16 @@ export class PricingService {
     return { isExtremeWeather: this.isExtremeWeather };
   }
   
-  async calculateFare(distanceInMeters: number, serviceType: string = 'STANDARD', discountAmount: number = 0) {
+  async calculateFare(distanceInMeters: number, vehicleType: VehicleType, discountAmount: number = 0) {
     const distanceInKm = distanceInMeters / 1000;
     let surge = 1.0;
     
-    if (serviceType === 'PREMIUM') {
-      surge += 0.5;
-    }
-
     if (this.isExtremeWeather) {
       surge += 0.5;
     }
 
-    const baseFare = await this.systemConfigsService.getValue('BASE_FARE');
-    const ratePerKm = await this.systemConfigsService.getValue('RATE_PER_KM');
+    const baseFare = await this.systemConfigsService.getValue(`BASE_FARE_${vehicleType}`);
+    const ratePerKm = await this.systemConfigsService.getValue(`RATE_PER_KM_${vehicleType}`);
     const commissionPercent = await this.systemConfigsService.getValue('PLATFORM_COMMISSION_PERCENT');
 
     let originalFare = baseFare + (distanceInKm * ratePerKm);

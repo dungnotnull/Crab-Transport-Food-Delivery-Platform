@@ -1,6 +1,7 @@
 import { IsNumber, ValidateNested, IsOptional, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../entities/trip.entity';
+import { VehicleType } from '../../common/enums/vehicle-type.enum';
 
 export class LocationDto {
   @IsNumber()
@@ -18,6 +19,9 @@ export class BookOrderDto {
   @ValidateNested()
   @Type(() => LocationDto)
   dropoff: LocationDto;
+
+  @IsEnum(VehicleType)
+  vehicleType: VehicleType;
 
   @IsOptional()
   @IsString()

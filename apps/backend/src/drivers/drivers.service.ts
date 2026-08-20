@@ -38,7 +38,7 @@ export class DriversService {
     return this.driverLocationRepo.save(location);
   }
 
-  async findAvailableDrivers(lng: number, lat: number, radiusInMeters: number = 3000, limit: number = 5) {
+  async findAvailableDrivers(lng: number, lat: number, vehicleType: string, radiusInMeters: number = 3000, limit: number = 5) {
     const origin = {
       type: 'Point',
       coordinates: [lng, lat],
@@ -55,6 +55,7 @@ export class DriversService {
       .andWhere('wallet.status = :status', { status: 'ACTIVE' })
       .andWhere('wallet.balance >= :minBalance', { minBalance })
       .andWhere('profile.average_rating >= :minRating', { minRating: 3.5 })
+      .andWhere('profile.vehicle_type = :vehicleType', { vehicleType })
       .andWhere(
         'ST_DWithin(driverLocation.current_location::geography, ST_SetSRID(ST_GeomFromGeoJSON(:origin), 4326)::geography, :radius)',
         { origin: JSON.stringify(origin), radius: radiusInMeters }

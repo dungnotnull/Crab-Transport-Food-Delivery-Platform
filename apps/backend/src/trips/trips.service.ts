@@ -15,6 +15,7 @@ import { TrackingGateway } from '../tracking/tracking.gateway';
 import { CouponsService } from '../coupons/coupons.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { WalletStatus } from '../wallets/entities/driver-wallet.entity';
+import { VehicleType } from '../common/enums/vehicle-type.enum';
 
 @Injectable()
 export class OrdersService {
@@ -39,13 +40,13 @@ export class OrdersService {
     // Distance limit removed to allow booking anywhere
 
     // Get pricing without coupon first
-    const basePricing = await this.pricingService.calculateFare(route.distance, 'STANDARD');
+    const basePricing = await this.pricingService.calculateFare(route.distance, bookOrderDto.vehicleType);
     let finalPricing = basePricing;
     let couponResult: any = null;
 
     if (bookOrderDto.coupon_code) {
       couponResult = await this.couponsService.validateAndCalculateDiscount(bookOrderDto.coupon_code, basePricing.originalFare);
-      finalPricing = await this.pricingService.calculateFare(route.distance, 'STANDARD', couponResult.discountAmount);
+      finalPricing = await this.pricingService.calculateFare(route.distance, bookOrderDto.vehicleType, couponResult.discountAmount);
     }
 
     return {
@@ -59,13 +60,13 @@ export class OrdersService {
   }
 
   async bookOrder(customerId: string, bookOrderDto: BookOrderDto): Promise<Trip> {
-    const { pickup, dropoff, coupon_code, paymentMethod } = bookOrderDto;
+    const { pickup, dropoff, coupon_code, paymentMethod, vehicleType } = bookOrderDto;
 
     const route = await this.routingService.getRoute(pickup, dropoff);
     // Distance limit removed to allow booking anywhere
 
     return await this.ordersRepository.manager.transaction(async (transactionalEntityManager) => {
-      const basePricing = await this.pricingService.calculateFare(route.distance);
+      const basePricing = await this.pricingService.calculateFare(route.distance, vehicleType);
       let finalPricing = basePricing;
 
       if (coupon_code) {
@@ -90,13 +91,14 @@ export class OrdersService {
         lockedCoupon.used_count += 1;
         await transactionalEntityManager.save(lockedCoupon);
 
-        finalPricing = await this.pricingService.calculateFare(route.distance, 'STANDARD', couponResult.discountAmount);
+        finalPricing = await this.pricingService.calculateFare(route.distance, vehicleType, couponResult.discountAmount);
       }
 
       const trip = transactionalEntityManager.create(Trip, {
         customer_id: customerId,
         pickup_location: { type: 'Point', coordinates: [pickup.lng, pickup.lat] },
         dropoff_location: { type: 'Point', coordinates: [dropoff.lng, dropoff.lat] },
+        vehicle_type: vehicleType,
         status: OrderStatus.FINDING_DRIVER,
         original_fare: finalPricing.originalFare,
         coupon_code: coupon_code || null,
@@ -217,7 +219,7 @@ export class OrdersService {
   async handleOrderCreated(trip: Trip) {
     this.logger.log(`Handling dispatch for trip ${trip.id}`);
     const [lng, lat] = trip.pickup_location.coordinates;
-    const availableDrivers = await this.driversService.findAvailableDrivers(lng, lat, 3000, 5);
+    const availableDrivers = await this.driversService.findAvailableDrivers(lng, lat, trip.vehicle_type, 3000, 5);
 
     if (availableDrivers.length === 0) {
       this.logger.warn(`No available drivers found for trip ${trip.id}`);

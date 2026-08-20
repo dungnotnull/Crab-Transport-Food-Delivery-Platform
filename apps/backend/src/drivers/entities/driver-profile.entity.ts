@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { VehicleType } from '../../common/enums/vehicle-type.enum';
 
 @Entity('driver_profiles')
 export class DriverProfile {
@@ -13,8 +14,12 @@ export class DriverProfile {
   @Column({ unique: true })
   license_plate: string;
 
-  @Column()
-  vehicle_type: string; // BIKE or CAR
+  @Column({
+    type: 'enum',
+    enum: VehicleType,
+    default: VehicleType.BIKE,
+  })
+  vehicle_type: VehicleType;
 
   @Column('varchar', { length: 50, nullable: true })
   color: string;

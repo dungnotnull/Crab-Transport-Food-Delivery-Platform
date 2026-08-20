@@ -64,7 +64,7 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
     
     // --- Các trường bắt buộc NẾU role = DRIVER ---
     "license_plate": "59P1-88888",     // Biển số xe
-    "vehicle_type": "BIKE",            // "BIKE" hoặc "CAR"
+    "vehicle_type": "BIKE",            // "BIKE" | "CAR_4" | "CAR_7"
     "vehicle_brand": "Honda Wave Alpha", // Hiệu xe / Dòng xe
     "color": "Xanh lá",                // Màu sắc xe
     "vehicle_image": "https://images.unsplash.com/photo-1558981403-c5f9899a28bc" // Ảnh chụp xe
@@ -101,7 +101,7 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   {
     "pickup": { "lat": 10.782800, "lng": 106.695800, "address": "Halo Building" },
     "dropoff": { "lat": 10.776889, "lng": 106.700806, "address": "Chợ Bến Thành" },
-    "vehicleType": "BIKE", // BIKE | CAR | FOOD
+    "vehicleType": "BIKE", // BIKE | CAR_4 | CAR_7
     "coupon_code": "WELCOME10K",
     "paymentMethod": "CASH" // CASH (Mặc định), CREDIT_CARD, E_WALLET
   }

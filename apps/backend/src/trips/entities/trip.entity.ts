@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import type { Point } from 'geojson';
 import { User } from '../../users/entities/user.entity';
+import { VehicleType } from '../../common/enums/vehicle-type.enum';
 
 export enum OrderStatus {
   FINDING_DRIVER = 'FINDING_DRIVER',
@@ -66,6 +67,13 @@ export class Trip {
     default: OrderStatus.FINDING_DRIVER,
   })
   status: OrderStatus;
+
+  @Column({
+    type: 'enum',
+    enum: VehicleType,
+    default: VehicleType.BIKE,
+  })
+  vehicle_type: VehicleType;
 
   @Column('decimal', { precision: 10, scale: 2 })
   original_fare: number;
