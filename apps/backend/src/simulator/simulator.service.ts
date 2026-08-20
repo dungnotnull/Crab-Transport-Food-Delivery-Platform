@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { RoutingService } from '../routing/routing.service';
 import { TrackingGateway } from '../tracking/tracking.gateway';
-import { OrdersService } from '../trips/trips.service';
-import { OrderStatus } from '../trips/entities/trip.entity';
+import { TripsService } from '../trips/trips.service';
+import { TripStatus } from '../trips/entities/trip.entity';
 import { DriversService } from '../drivers/drivers.service';
 import * as turf from '@turf/turf';
 
@@ -13,12 +13,12 @@ export class SimulatorService {
   constructor(
     private routingService: RoutingService,
     private trackingGateway: TrackingGateway,
-    private ordersService: OrdersService,
+    private tripsService: TripsService,
     private driversService: DriversService,
   ) {}
 
   async simulateTrip(tripId: string) {
-    const trip = await this.ordersService['ordersRepository'].findOne({ where: { id: tripId } });
+    const trip = await this.tripsService['tripsRepository'].findOne({ where: { id: tripId } });
     if (!trip) throw new NotFoundException('Trip not found');
     if (!trip.driver_id) throw new BadRequestException('Trip does not have a driver assigned');
 
@@ -37,19 +37,19 @@ export class SimulatorService {
     await this.drive(trip.driver_id, tripId, startPoint, pickupPoint);
     
     // ARRIVED AT PICKUP
-    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.ARRIVED_AT_PICKUP);
+    await this.tripsService.updateStatus(tripId, trip.driver_id, TripStatus.ARRIVED_AT_PICKUP);
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // IN TRANSIT
     this.logger.log(`[Simulator] Trip ${tripId} is now IN_TRANSIT`);
-    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.IN_TRANSIT);
+    await this.tripsService.updateStatus(tripId, trip.driver_id, TripStatus.IN_TRANSIT);
     await this.drive(trip.driver_id, tripId, pickupPoint, dropoffPoint);
 
     // ARRIVED AT DESTINATION & COMPLETED
-    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.ARRIVED_AT_DESTINATION);
+    await this.tripsService.updateStatus(tripId, trip.driver_id, TripStatus.ARRIVED_AT_DESTINATION);
     await this.delay(2000); // 2s pause before completing
-    await this.ordersService.updateStatus(tripId, trip.driver_id, OrderStatus.COMPLETED);
+    await this.tripsService.updateStatus(tripId, trip.driver_id, TripStatus.COMPLETED);
     this.logger.log(`[Simulator] Simulation finished for Trip ${tripId}`);
   }
 

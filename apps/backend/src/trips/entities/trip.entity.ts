@@ -3,7 +3,7 @@ import type { Point } from 'geojson';
 import { User } from '../../users/entities/user.entity';
 import { VehicleType } from '../../common/enums/vehicle-type.enum';
 
-export enum OrderStatus {
+export enum TripStatus {
   FINDING_DRIVER = 'FINDING_DRIVER',
   ACCEPTED = 'ACCEPTED',
   DRIVER_ARRIVING = 'DRIVER_ARRIVING',
@@ -63,10 +63,10 @@ export class Trip {
 
   @Column({
     type: 'enum',
-    enum: OrderStatus,
-    default: OrderStatus.FINDING_DRIVER,
+    enum: TripStatus,
+    default: TripStatus.FINDING_DRIVER,
   })
-  status: OrderStatus;
+  status: TripStatus;
 
   @Column({
     type: 'enum',
