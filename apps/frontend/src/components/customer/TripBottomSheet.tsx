@@ -65,17 +65,6 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
 
   const info = getStatusInfo(status);
 
-  // Mock chuyển trạng thái cho demo nếu click
-  const handleAdvanceStatusMock = () => {
-    if (status === 'ACCEPTED') setTripStatus('ARRIVED_AT_PICKUP');
-    else if (status === 'ARRIVED_AT_PICKUP') setTripStatus('IN_TRANSIT');
-    else if (status === 'IN_TRANSIT') setTripStatus('ARRIVED_AT_DESTINATION');
-    else if (status === 'ARRIVED_AT_DESTINATION') {
-      setTripStatus('COMPLETED');
-      onOpenRating();
-    }
-  };
-
   return (
     <div className="w-full bg-white/95 backdrop-blur-md border border-slate-100 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-5 duration-300">
       {/* Drag handle bar */}
@@ -111,7 +100,7 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
         <div className="flex items-center gap-3">
           <div className="relative">
             <img
-              src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120"
+              src={activeTrip.driver?.driverProfile?.vehicle_image || "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120"}
               alt="Driver Avatar"
               className="w-12 h-12 rounded-full object-cover border-2 border-[#00B14F]"
             />
@@ -120,14 +109,14 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
 
           <div>
             <div className="flex items-center gap-1.5">
-              <h4 className="text-sm font-black text-slate-900">Nguyễn Văn Tài Xế</h4>
+              <h4 className="text-sm font-black text-slate-900">{activeTrip.driver?.full_name || 'Tài xế'}</h4>
               <span className="text-xs font-bold text-amber-500 flex items-center gap-0.5">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                4.9
+                {activeTrip.driver?.driverProfile?.average_rating?.toFixed(1) || '5.0'}
               </span>
             </div>
             <p className="text-xs font-semibold text-slate-600">
-              Toyota Vios • <span className="font-extrabold text-slate-900 bg-slate-200/80 px-1.5 py-0.5 rounded">51H-888.88</span>
+              {activeTrip.driver?.driverProfile?.vehicle_brand || 'Xe'} • <span className="font-extrabold text-slate-900 bg-slate-200/80 px-1.5 py-0.5 rounded">{activeTrip.driver?.driverProfile?.license_plate || '---'}</span>
             </p>
           </div>
         </div>
@@ -157,15 +146,6 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
           </Button>
         ) : (
           <>
-            {/* Advance Status Mock Button for Testing */}
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handleAdvanceStatusMock}
-              className="flex-1 text-xs font-bold"
-            >
-              ⏩ Giả lập bước tiếp theo
-            </Button>
 
             {/* Cancel Button (Bị cấm khi IN_TRANSIT theo rule) */}
             <Button

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTripStore } from '../../stores/tripStore';
+import { tripService } from '../../services/trip.service';
+import { socketService } from '../../services/socket.service';
 import { CrabMap } from '../../components/map/CrabMap';
 import { BookingPanel } from '../../components/customer/BookingPanel';
 import { FindingRadarModal } from '../../components/customer/FindingRadarModal';
@@ -22,6 +24,65 @@ export const CustomerHomePage: React.FC = () => {
 
   const [isRatingOpen, setIsRatingOpen] = useState(false);
   const { showToast } = useToast();
+
+  // 1. Fetch active trip on mount to restore state
+  useEffect(() => {
+    tripService.getActiveTrip().then((trip) => {
+      if (trip) {
+        setActiveTrip(trip);
+        // Khôi phục route nếu cần, ở đây tạm set dropoff & pickup
+        setPickup(trip.pickup_location);
+        setDropoff(trip.dropoff_location);
+        if (trip.status === 'FINDING_DRIVER') {
+          setIsSearchingDriver(true);
+        } else {
+          setIsSearchingDriver(false);
+        }
+        // Join socket room
+        socketService.joinRoom(`trip_${trip.id}`);
+      }
+    }).catch(() => {
+      // no active trip
+    });
+  }, [setActiveTrip, setPickup, setDropoff, setIsSearchingDriver]);
+
+  // 2. Listen to socket events
+  useEffect(() => {
+    const handleStatusChanged = async (data: any) => {
+      console.log('trip:status_changed', data);
+      
+      if (data.status === 'CANCELLED') {
+        showToast('Chuyến đi đã bị hủy!', 'warning');
+        resetBooking();
+        return;
+      }
+
+      // Fetch latest trip details to populate driver info
+      try {
+        const updatedTrip = await tripService.getTripDetails(data.tripId);
+        setActiveTrip(updatedTrip);
+      } catch (err) {
+        console.error('Failed to fetch updated trip details', err);
+        useTripStore.getState().setTripStatus(data.status); // Fallback
+      }
+
+      if (data.status === 'COMPLETED') {
+        setIsRatingOpen(true);
+      }
+    };
+
+    const handleLocationStream = (data: any) => {
+      useTripStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng });
+    };
+
+    socketService.on('trip:status_changed', handleStatusChanged);
+    socketService.on('trip:location_stream', handleLocationStream);
+
+    return () => {
+      socketService.off('trip:status_changed', handleStatusChanged);
+      socketService.off('trip:location_stream', handleLocationStream);
+    };
+  }, [resetBooking, showToast, setActiveTrip]);
 
   // Click trên bản đồ để chọn điểm đến
   const handleMapClick = (lat: number, lng: number) => {
@@ -83,7 +144,8 @@ export const CustomerHomePage: React.FC = () => {
         <FindingRadarModal
           onCancel={handleCancelSearch}
           onDriverFoundMock={() => {
-            setIsSearchingDriver(false);
+            // Do not use mock anymore, wait for socket
+            showToast('Đang chờ tài xế nhận cuốc (qua WebSocket)...', 'info');
           }}
         />
       )}

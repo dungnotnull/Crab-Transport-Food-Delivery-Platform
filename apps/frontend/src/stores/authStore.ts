@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User, UserRole } from '../types/user.types';
+import { socketService } from '../services/socket.service';
 
 interface AuthState {
   user: User | null;
@@ -23,6 +24,11 @@ export const useAuthStore = create<AuthState>((set) => {
     }
   }
 
+  // Khởi tạo socket nếu đã có token
+  if (savedToken && savedUser) {
+    socketService.connect();
+  }
+
   return {
     user: savedUser,
     token: savedToken,
@@ -32,12 +38,14 @@ export const useAuthStore = create<AuthState>((set) => {
       localStorage.setItem('crab_access_token', token);
       localStorage.setItem('crab_user', JSON.stringify(user));
       set({ user, token, isAuthenticated: true });
+      socketService.connect();
     },
 
     logout: () => {
       localStorage.removeItem('crab_access_token');
       localStorage.removeItem('crab_user');
       set({ user: null, token: null, isAuthenticated: false });
+      socketService.disconnect();
     },
 
     updateUser: (partialUser) => {

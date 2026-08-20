@@ -92,4 +92,28 @@ export const tripService = {
   async rateTrip(tripId: string, rating: number, feedback?: string): Promise<void> {
     await apiClient.post(`/trips/${tripId}/rating`, { rating, feedback });
   },
+
+  /**
+   * Lấy chi tiết cuốc xe đang active của user hiện tại
+   */
+  async getActiveTrip(): Promise<Trip | null> {
+    const res = await apiClient.get<ApiResponse<Trip>>('/trips/active');
+    return res.data.data || null;
+  },
+
+  /**
+   * Lấy chi tiết 1 cuốc xe
+   */
+  async getTripDetails(tripId: string): Promise<Trip> {
+    const res = await apiClient.get<ApiResponse<Trip>>(`/trips/${tripId}`);
+    return res.data.data;
+  },
+
+  /**
+   * Lấy lịch sử cuốc xe của customer
+   */
+  async getCustomerHistory(): Promise<Trip[]> {
+    const res = await apiClient.get<ApiResponse<Trip[]>>('/trips/customer/history');
+    return res.data.data;
+  }
 };

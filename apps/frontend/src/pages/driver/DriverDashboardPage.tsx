@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useDriverStore } from '../../stores/driverStore';
 import { driverService } from '../../services/driver.service';
+import { tripService } from '../../services/trip.service';
+import { socketService } from '../../services/socket.service';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { TripOfferModal } from '../../components/driver/TripOfferModal';
+import { CrabMap } from '../../components/map/CrabMap';
 import { formatCurrency } from '../../utils/currency.utils';
 import { HALO_BUILDING_LOCATION, POPULAR_DESTINATIONS } from '../../utils/geo.utils';
 import { useToast } from '../../components/common/Toast';
@@ -29,7 +32,61 @@ export const DriverDashboardPage: React.FC = () => {
     is_online: true,
   };
 
-  const walletBalance = user?.walletBalance ?? 250000;
+  const [walletBalance, setWalletBalance] = useState<number>(user?.walletBalance ?? 250000);
+  const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  // 1. Fetch real wallet & restore active trip on mount
+  useEffect(() => {
+    driverService.getWalletDetails().then((wallet) => {
+      setWalletBalance(wallet.balance);
+    }).catch(console.error);
+
+    tripService.getActiveTrip().then((trip) => {
+      if (trip) {
+        setActiveTripId(trip.id);
+        // Map status to step (mock basic)
+        if (trip.status === 'ACCEPTED') setTripStep(1);
+        else if (trip.status === 'ARRIVED_AT_PICKUP') setTripStep(2);
+        else if (trip.status === 'IN_TRANSIT') setTripStep(3);
+        else if (trip.status === 'ARRIVED_AT_DESTINATION') setTripStep(4);
+        socketService.joinRoom(`trip_${trip.id}`);
+      }
+    }).catch(console.error);
+  }, [setActiveTripId]);
+
+  // 2. Geolocation tracking & emit
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setDriverLocation({ lat: latitude, lng: longitude });
+        socketService.emit('driver:update_location', { lat: latitude, lng: longitude });
+        
+        // Cập nhật lên API (Debounce)
+        driverService.updateLocation(latitude, longitude).catch(() => {});
+      },
+      (err) => console.error('Error getting location', err),
+      { enableHighAccuracy: true }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isOnline]);
+
+  // 3. Socket listeners
+  useEffect(() => {
+    const handleTripOffer = (data: any) => {
+      console.log('driver:trip_offer received', data);
+      setIncomingOffer(data);
+    };
+
+    socketService.on('driver:trip_offer', handleTripOffer);
+    
+    return () => {
+      socketService.off('driver:trip_offer', handleTripOffer);
+    };
+  }, [setIncomingOffer]);
 
   // Bật / Tắt trực tuyến (Gọi trực tiếp DB PostgreSQL)
   const handleToggleOnline = async () => {
@@ -46,28 +103,20 @@ export const DriverDashboardPage: React.FC = () => {
     }
   };
 
-  // Kích hoạt nhận yêu cầu cuốc xe
-  const handleTriggerIncomingOffer = () => {
-    if (!isOnline) {
-      showToast('Vui lòng BẬT trực tuyến trước khi nhận cuốc!', 'warning');
-      return;
-    }
 
-    setIncomingOffer({
-      tripId: `ORD-${Date.now().toString().slice(-6)}`,
-      pickup: HALO_BUILDING_LOCATION,
-      dropoff: POPULAR_DESTINATIONS[0],
-      fare: 35000,
-      distance: 3400,
-      duration: 540,
-      expiredAt: new Date(Date.now() + 15000).toISOString(),
-    });
-  };
 
   const handleAcceptOffer = async (tripId: string) => {
-    setIncomingOffer(null);
-    setActiveTripId(tripId);
-    setTripStep(1); // Bước 1: Đang đến điểm đón
+    try {
+      await driverService.acceptTrip(tripId);
+      setIncomingOffer(null);
+      setActiveTripId(tripId);
+      setTripStep(1); // Bước 1: Đang đến điểm đón
+      socketService.joinRoom(`trip_${tripId}`);
+      showToast('Đã nhận chuyến thành công!', 'success');
+    } catch (err: any) {
+      setIncomingOffer(null);
+      showToast(err.response?.data?.message || 'Cuốc xe đã bị nhận bởi tài xế khác', 'error');
+    }
   };
 
   const handleDeclineOffer = () => {
@@ -249,17 +298,14 @@ export const DriverDashboardPage: React.FC = () => {
             </p>
           </div>
 
-          {isOnline && (
-            <Button
-              size="md"
-              variant="outline"
-              onClick={handleTriggerIncomingOffer}
-              leftIcon={<Bell className="w-4 h-4 text-amber-500" />}
-              className="mt-2 text-xs font-extrabold border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
-            >
-              🔔 Nhận yêu cầu chuyến xe mới (15s Countdown)
-            </Button>
-          )}
+          <div className="h-64 w-full rounded-2xl overflow-hidden mt-4 relative">
+            <CrabMap
+              pickup={null}
+              dropoff={null}
+              driverLocation={driverLocation || undefined}
+              className="w-full h-full"
+            />
+          </div>
         </Card>
       )}
 

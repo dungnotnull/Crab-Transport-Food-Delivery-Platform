@@ -31,4 +31,20 @@ export const driverService = {
     const res = await apiClient.patch<ApiResponse<any>>(`/trips/${tripId}/status`, { status });
     return res.data.data;
   },
+
+  /**
+   * Lấy lịch sử cuốc xe của tài xế (`GET /api/v1/trips/driver/history`)
+   */
+  async getDriverHistory(): Promise<any[]> {
+    const res = await apiClient.get<ApiResponse<any[]>>('/trips/driver/history');
+    return res.data.data;
+  },
+
+  /**
+   * Lấy thông tin ví và lịch sử giao dịch (`GET /api/v1/wallets/me`)
+   */
+  async getWalletDetails(): Promise<any> {
+    const res = await apiClient.get<ApiResponse<any>>('/wallets/me');
+    return res.data.data;
+  }
 };
