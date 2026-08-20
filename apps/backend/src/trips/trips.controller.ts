@@ -68,6 +68,18 @@ export class OrdersController {
     return this.ordersService.getDriverHistory(req.user.id);
   }
 
+  @Get('customer/history')
+  @Roles(Role.CUSTOMER)
+  async getCustomerHistory(@Req() req: any) {
+    return this.ordersService.getCustomerHistory(req.user.id);
+  }
+
+  @Get('active')
+  @Roles(Role.CUSTOMER, Role.DRIVER)
+  async getActiveTrip(@Req() req: any) {
+    return this.ordersService.getActiveTrip(req.user.id, req.user.role);
+  }
+
   @Get(':id')
   @Roles(Role.CUSTOMER, Role.DRIVER)
   async getTripDetails(@Req() req: any, @Param('id') id: string) {

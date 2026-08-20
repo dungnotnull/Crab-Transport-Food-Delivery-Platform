@@ -443,4 +443,28 @@ export class OrdersService {
       order: { created_at: 'DESC' },
     });
   }
+
+  async getCustomerHistory(customerId: string): Promise<Trip[]> {
+    return this.ordersRepository.find({
+      where: { customer_id: customerId },
+      order: { created_at: 'DESC' },
+      relations: ['driver', 'driver.driverProfile'],
+    });
+  }
+
+  async getActiveTrip(userId: string, role: Role): Promise<Trip | null> {
+    const query = this.ordersRepository.createQueryBuilder('trip')
+      .leftJoinAndSelect('trip.customer', 'customer')
+      .leftJoinAndSelect('trip.driver', 'driver')
+      .leftJoinAndSelect('driver.driverProfile', 'driverProfile')
+      .where('trip.status NOT IN (:...statuses)', { statuses: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] });
+
+    if (role === Role.CUSTOMER) {
+      query.andWhere('trip.customer_id = :userId', { userId });
+    } else {
+      query.andWhere('trip.driver_id = :userId', { userId });
+    }
+
+    return query.getOne();
+  }
 }
