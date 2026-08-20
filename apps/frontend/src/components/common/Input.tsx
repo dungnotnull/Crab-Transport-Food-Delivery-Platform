@@ -18,9 +18,12 @@ export const Input: React.FC<InputProps> = ({
   rightIcon,
   className,
   id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
   ...props
 }) => {
   const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  const feedbackId = inputId ? `${inputId}-feedback` : undefined;
 
   return (
     <div className="w-full flex flex-col gap-1.5">
@@ -37,9 +40,11 @@ export const Input: React.FC<InputProps> = ({
         )}
         <input
           id={inputId}
+          aria-invalid={error ? true : ariaInvalid}
+          aria-describedby={feedbackId || ariaDescribedBy}
           className={twMerge(
             clsx(
-              'w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-900 border-2 rounded-xl text-sm transition-all duration-200 focus:outline-none focus:ring-4 placeholder:text-slate-400',
+              'w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-900 border-2 rounded-xl text-sm transition-[background-color,border-color,box-shadow] duration-200 focus-visible:outline-none focus:ring-4 placeholder:text-slate-400',
               leftIcon ? 'pl-10' : 'pl-3.5',
               rightIcon ? 'pr-10' : 'pr-3.5',
               'py-2.5',
@@ -57,8 +62,8 @@ export const Input: React.FC<InputProps> = ({
           </div>
         )}
       </div>
-      {error && <span className="text-xs font-semibold text-red-500">{error}</span>}
-      {helperText && !error && <span className="text-xs text-slate-500">{helperText}</span>}
+      {error && <span id={feedbackId} className="text-xs font-semibold text-red-500">{error}</span>}
+      {helperText && !error && <span id={feedbackId} className="text-xs text-slate-500">{helperText}</span>}
     </div>
   );
 };

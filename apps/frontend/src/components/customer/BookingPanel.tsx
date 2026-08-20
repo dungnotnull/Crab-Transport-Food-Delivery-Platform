@@ -9,6 +9,7 @@ import { formatDistance, formatDuration, POPULAR_DESTINATIONS } from '../../util
 import { ServiceType, PaymentMethod, LocationPoint } from '../../types/trip.types';
 import { MapPin, Navigation, Car, CreditCard, Banknote, Sparkles, Clock, Compass, Users } from 'lucide-react';
 import { useToast } from '../common/Toast';
+import { getApiErrorMessage } from '../../services/auth.helpers';
 
 interface BookingPanelProps {
   onStartFindingDriver: () => void;
@@ -61,34 +62,39 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
 
   // Tính toán OSRM Preview khi có đủ Pickup, Dropoff và loại xe
   useEffect(() => {
-    if (pickup && dropoff) {
-      let isMounted = true;
-      setIsLoadingRoute(true);
+    if (!dropoff) {
+      setRoutePreview(null);
+      return;
+    }
 
-      tripService
-        .previewTrip(pickup, dropoff, serviceType, couponCode)
-        .then((data) => {
-          if (isMounted) {
-            setRoutePreview(data);
-          }
-        })
-        .catch((err) => {
-          console.error('Lỗi tính đường OSRM hoặc mã KM:', err);
+    let isMounted = true;
+    setRoutePreview(null);
+    setIsLoadingRoute(true);
+
+    tripService
+      .previewTrip(pickup, dropoff, serviceType, couponCode)
+      .then((data) => {
+        if (isMounted) {
+          setRoutePreview(data);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          showToast(getApiErrorMessage(err, 'Không thể tính lộ trình và cước phí. Vui lòng thử lại.'), 'error');
           if (couponCode) {
-            showToast('Mã khuyến mãi không hợp lệ hoặc đã hết hạn!', 'error');
             setCouponCode('');
             setCouponInput('');
           }
-        })
-        .finally(() => {
-          if (isMounted) setIsLoadingRoute(false);
-        });
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingRoute(false);
+      });
 
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [pickup, dropoff, serviceType, couponCode, setIsLoadingRoute, setRoutePreview]);
+    return () => {
+      isMounted = false;
+    };
+  }, [pickup, dropoff, serviceType, couponCode, setIsLoadingRoute, setRoutePreview, showToast]);
 
   // Nút chủ động làm mới GPS
   const handleRefreshCurrentGPS = () => {
@@ -133,7 +139,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
 
   // Thực hiện Đặt xe Crab
   const handleBookTrip = async () => {
-    if (!dropoff) {
+    if (!dropoff || !routePreview) {
       showToast('Vui lòng chọn điểm đến trên bản đồ hoặc danh sách gợi ý!', 'warning');
       return;
     }
@@ -246,7 +252,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <button
             type="button"
             onClick={() => setServiceType('BIKE')}
-            className={`p-2.5 rounded-2xl border-2 flex flex-col items-center justify-between text-center transition-all ${
+            aria-pressed={serviceType === 'BIKE'}
+            className={`p-2.5 rounded-2xl border-2 flex flex-col items-center justify-between text-center transition-[background-color,border-color,box-shadow] ${
               serviceType === 'BIKE'
                 ? 'border-[#00B14F] bg-emerald-50/80 shadow-md shadow-[#00B14F]/15 ring-2 ring-emerald-500/20'
                 : 'border-slate-200 bg-white hover:border-slate-300'
@@ -258,7 +265,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
             <div className="text-xs font-black text-slate-900">CrabBike</div>
             <span className="text-[10px] text-slate-500">Xe máy 1 người</span>
             <span className="text-xs font-black text-[#00B14F] mt-1">
-              {routePreview ? formatCurrency(getCalculatedFare('BIKE')) : '15.000 ₫'}
+              {routePreview ? formatCurrency(getCalculatedFare('BIKE')) : 'Chưa có giá'}
             </span>
           </button>
 
@@ -266,7 +273,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <button
             type="button"
             onClick={() => setServiceType('CAR_4')}
-            className={`p-2.5 rounded-2xl border-2 flex flex-col items-center justify-between text-center transition-all ${
+            aria-pressed={serviceType === 'CAR_4'}
+            className={`p-2.5 rounded-2xl border-2 flex flex-col items-center justify-between text-center transition-[background-color,border-color,box-shadow] ${
               serviceType === 'CAR_4'
                 ? 'border-[#00B14F] bg-emerald-50/80 shadow-md shadow-[#00B14F]/15 ring-2 ring-emerald-500/20'
                 : 'border-slate-200 bg-white hover:border-slate-300'
@@ -278,7 +286,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
             <div className="text-xs font-black text-slate-900">CrabCar 4C</div>
             <span className="text-[10px] text-slate-500">Sedan 4 chỗ</span>
             <span className="text-xs font-black text-[#00B14F] mt-1">
-              {routePreview ? formatCurrency(getCalculatedFare('CAR_4')) : '28.000 ₫'}
+              {routePreview ? formatCurrency(getCalculatedFare('CAR_4')) : 'Chưa có giá'}
             </span>
           </button>
 
@@ -286,7 +294,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <button
             type="button"
             onClick={() => setServiceType('CAR_7')}
-            className={`p-2.5 rounded-2xl border-2 flex flex-col items-center justify-between text-center transition-all ${
+            aria-pressed={serviceType === 'CAR_7'}
+            className={`p-2.5 rounded-2xl border-2 flex flex-col items-center justify-between text-center transition-[background-color,border-color,box-shadow] ${
               serviceType === 'CAR_7'
                 ? 'border-blue-600 bg-blue-50/80 shadow-md shadow-blue-600/15 ring-2 ring-blue-500/20'
                 : 'border-slate-200 bg-white hover:border-slate-300'
@@ -298,7 +307,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
             <div className="text-xs font-black text-slate-900">CrabCar 7C</div>
             <span className="text-[10px] text-slate-500">SUV/MPV 7 chỗ</span>
             <span className="text-xs font-black text-blue-600 mt-1">
-              {routePreview ? formatCurrency(getCalculatedFare('CAR_7')) : '38.000 ₫'}
+              {routePreview ? formatCurrency(getCalculatedFare('CAR_7')) : 'Chưa có giá'}
             </span>
           </button>
         </div>
@@ -310,7 +319,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <button
             type="button"
             onClick={() => setPaymentMethod('CASH')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+            aria-pressed={paymentMethod === 'CASH'}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-[background-color,color,box-shadow] ${
               paymentMethod === 'CASH'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -322,7 +332,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           <button
             type="button"
             onClick={() => setPaymentMethod('CREDIT_CARD')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+            aria-pressed={paymentMethod === 'CREDIT_CARD'}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-[background-color,color,box-shadow] ${
               paymentMethod === 'CREDIT_CARD'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -365,13 +376,17 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         size="lg"
         onClick={handleBookTrip}
         isLoading={isSubmitting || isLoadingRoute}
-        disabled={!dropoff}
+        disabled={!dropoff || !routePreview || isLoadingRoute}
         className="w-full text-base font-extrabold shadow-xl"
       >
-        {dropoff
+        {isLoadingRoute
+          ? 'Đang tính cước...'
+          : dropoff && routePreview
           ? `Đặt ${serviceType === 'CAR_7' ? 'CrabCar 7 Chỗ' : 'CrabCar 4 Chỗ'} • ${formatCurrency(
               getCalculatedFare(serviceType)
             )}`
+          : dropoff
+          ? 'Chưa có giá cước'
           : 'Vui lòng chọn Điểm Đến trên bản đồ'}
       </Button>
     </div>

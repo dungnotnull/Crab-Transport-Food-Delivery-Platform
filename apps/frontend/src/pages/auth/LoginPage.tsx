@@ -18,48 +18,60 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
       showToast('Vui lòng nhập đầy đủ Email và Mật khẩu!', 'warning');
       return;
     }
 
     try {
       setIsLoading(true);
-      const data = await authService.login({ email, password });
+      const data = await authService.login({ email: normalizedEmail, password });
       login(data.user, data.accessToken);
       showToast(`Đăng nhập thành công! Xin chào ${data.user.full_name}`, 'success');
 
-      // Tự động điều hướng theo Role thực tế
-      if (data.user.role === 'DRIVER') {
-        navigate('/driver');
-      } else if (data.user.role === 'ADMIN' || data.user.role === 'SYSTEM_ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/customer');
-      }
-    } catch (err: any) {
-      const errorMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Đăng nhập thất bại, vui lòng kiểm tra lại mật khẩu!';
+      navigateByRole(data.user.role);
+    } catch (err: unknown) {
+      const errorMsg = authService.getErrorMessage(
+        err,
+        'Đăng nhập thất bại, vui lòng kiểm tra lại mật khẩu!',
+      );
       showToast(errorMsg, 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Demo Quick-Fill Accounts khớp 100% với PostgreSQL Database Seed
-  const handleQuickFill = (role: 'CUSTOMER' | 'DRIVER' | 'ADMIN') => {
-    if (role === 'CUSTOMER') {
-      setEmail('customer@crab.com');
-      setPassword('password123');
-    } else if (role === 'DRIVER') {
-      setEmail('driver1@crab.com');
-      setPassword('password123');
+  const navigateByRole = (role: string) => {
+    if (role === 'DRIVER') {
+      navigate('/driver');
+    } else if (role === 'ADMIN' || role === 'SYSTEM_ADMIN') {
+      navigate('/admin');
     } else {
-      setEmail('admin@crab.com');
-      setPassword('adminpassword'); // Khớp mật khẩu seeded trong database
+      navigate('/customer');
     }
+  };
+
+  const handleSampleLogin = async (role: 'CUSTOMER' | 'DRIVER') => {
+    try {
+      setIsLoading(true);
+      const data = await authService.loginSample(role);
+      login(data.user, data.accessToken);
+      showToast(`Đăng nhập tài khoản mẫu thành công! Xin chào ${data.user.full_name}`, 'success');
+      navigateByRole(data.user.role);
+    } catch (err: unknown) {
+      showToast(
+        authService.getErrorMessage(err, 'Không thể tạo tài khoản mẫu. Vui lòng kiểm tra kết nối máy chủ.'),
+        'error',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAdminQuickFill = () => {
+    setEmail('admin@crab.com');
+    setPassword('adminpassword');
   };
 
   return (
@@ -80,29 +92,32 @@ export const LoginPage: React.FC = () => {
           {/* Quick Demo Role Selector */}
           <div className="mb-5 p-2.5 bg-slate-100/90 rounded-2xl border border-slate-200/60">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block px-1 mb-1.5">
-              Tài khoản mẫu từ Database (1-Click):
+              Tài khoản mẫu (tự tạo nếu chưa tồn tại):
             </span>
             <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
-                onClick={() => handleQuickFill('CUSTOMER')}
-                className="py-2 px-2 bg-white hover:bg-emerald-50 text-slate-700 hover:text-[#00B14F] rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
+                onClick={() => handleSampleLogin('CUSTOMER')}
+                disabled={isLoading}
+                className="py-2 px-2 bg-white hover:bg-emerald-50 text-slate-700 hover:text-[#00B14F] rounded-xl text-xs font-bold transition-[background-color,color,box-shadow] shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
               >
                 <User className="w-3.5 h-3.5 text-[#00B14F]" />
                 Khách
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickFill('DRIVER')}
-                className="py-2 px-2 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-600 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
+                onClick={() => handleSampleLogin('DRIVER')}
+                disabled={isLoading}
+                className="py-2 px-2 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-600 rounded-xl text-xs font-bold transition-[background-color,color,box-shadow] shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
               >
                 <Car className="w-3.5 h-3.5 text-amber-500" />
                 Tài xế
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickFill('ADMIN')}
-                className="py-2 px-2 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
+                onClick={handleAdminQuickFill}
+                disabled={isLoading}
+                className="py-2 px-2 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-xl text-xs font-bold transition-[background-color,color,box-shadow] shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
               >
                 <Shield className="w-3.5 h-3.5 text-blue-500" />
                 Admin
@@ -114,21 +129,26 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
               label="Email"
+              name="email"
               type="email"
               placeholder="nhap.email@crab.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               leftIcon={<Mail className="w-4 h-4" />}
+              autoComplete="email"
+              spellCheck={false}
               required
             />
 
             <Input
               label="Mật khẩu"
+              name="password"
               type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               leftIcon={<Lock className="w-4 h-4" />}
+              autoComplete="current-password"
               required
             />
 

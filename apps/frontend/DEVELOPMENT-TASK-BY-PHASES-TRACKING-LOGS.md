@@ -199,3 +199,13 @@
 - [x] **Task 10.3: End-to-End Validation & Acceptance Testing**
   - [x] Kiểm thử luồng trọn vẹn: Đặt xe từ Halo Building -> Xem trước OSRM -> Nổ cuốc tài xế -> Race condition 409 -> Di chuyển Turf.js -> Hoàn thành -> Đánh giá 5 sao.
   - [x] Kiểm tra toàn bộ mã lỗi REST API và WebSocket Disconnect recovery.
+
+---
+
+## 🛠️ Phase 11: Frontend Bug Fixes & UX Hardening - [COMPLETED]
+- [x] Sửa luồng sample Customer/Driver bằng API register/login thật, không tự dựng dữ liệu người dùng từ JWT.
+- [x] Sửa register: chuẩn hóa dữ liệu nhập, giới hạn mật khẩu và tối ưu ảnh trước khi gửi JSON.
+- [x] Loại bỏ fallback nghiệp vụ giả ở Customer/Driver; chỉ dùng dữ liệu API/WebSocket hoặc trạng thái loading/empty/error.
+- [x] Sửa hủy chuyến và nhận chuyến để không chỉ reset local state hoặc gọi API trùng.
+- [x] Tối ưu UX/accessibility cho form, toast, focus state, mobile controls và reduced-motion.
+- [x] Đã chạy regression test, TypeScript check và production build thành công.

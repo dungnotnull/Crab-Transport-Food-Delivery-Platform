@@ -20,6 +20,11 @@ export const tripService = {
     });
 
     const data = res.data.data;
+    const fare = Number(data?.fare ?? data?.total_fare);
+
+    if (!data || !Number.isFinite(fare)) {
+      throw new Error('API chưa trả về đủ dữ liệu tuyến đường và cước phí');
+    }
 
     // Chuẩn hóa geometry từ backend (nếu backend trả về GeoJSON [lng, lat] thì chuyển sang Leaflet [lat, lng])
     let geometry: [number, number][] = [];
@@ -41,11 +46,11 @@ export const tripService = {
     return {
       distance: data.distance,
       duration: data.duration,
-      fare: data.fare || data.total_fare,
+      fare,
       geometry,
       breakdown: {
-        baseFare: data.original_fare || data.fare,
-        distanceFare: data.fare,
+        baseFare: Number(data.original_fare ?? fare),
+        distanceFare: fare,
         surgeMultiplier: 1.0,
         discount: data.discount_amount || 0,
       },
@@ -65,6 +70,12 @@ export const tripService = {
     });
 
     const data = res.data.data;
+    const totalFare = Number(data?.total_fare);
+
+    if (!data?.id || !Number.isFinite(totalFare)) {
+      throw new Error('API chưa trả về đủ dữ liệu chuyến đi');
+    }
+
     return {
       id: data.id,
       customer_id: data.customer_id,
@@ -72,7 +83,7 @@ export const tripService = {
       pickup_location: dto.pickup,
       dropoff_location: dto.dropoff,
       status: data.status || 'FINDING_DRIVER',
-      total_fare: data.total_fare || 25000,
+      total_fare: totalFare,
       service_type: dto.vehicleType,
       payment_method: data.payment_method || dto.paymentMethod || 'CASH',
       created_at: data.created_at,

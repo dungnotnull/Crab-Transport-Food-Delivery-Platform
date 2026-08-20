@@ -11,6 +11,11 @@ File này được Frontend Agent và lập trình viên quản lý để theo d
 | FE-001 | (Sample) Leaflet map container bị vỡ kích thước khi mở lại tab hoặc đổi kích thước màn hình | `CrabMap.tsx` | Medium | Resolved | Đã thêm hook lắng nghe resize và gọi `map.invalidateSize()` khi render. |
 | FE-002 | (Sample) Marker xe bị giật cục khi nhận tọa độ mới qua WebSocket | `MovingVehicleMarker.tsx` | High | Resolved | Đã tích hợp Turf.js `turf.along` với khoảng thời gian nội suy 1.2s để chuyển động mượt mà. |
 | FE-003 | (Sample) Race condition nhận cuốc trả về 409 làm treo giao diện tài xế | `TripOfferModal.tsx` | High | Resolved | Đã bắt mã lỗi `409 Conflict`, hiển thị toast thông báo thân thiện và tự động đóng modal. |
+| FE-004 | Nút tài khoản mẫu Customer/Driver đăng nhập bằng dữ liệu giả hoặc không tồn tại trong database | `LoginPage.tsx`, `auth.service.ts` | High | Resolved | Nút mẫu thử login trước, chỉ đăng ký qua API khi nhận 401, sau đó dùng user/token thật; không còn dựng user từ JWT. |
+| FE-005 | Luồng đăng ký gửi ảnh base64 nguyên kích thước và không chuẩn hóa dữ liệu nhập | `RegisterPage.tsx`, `image.utils.ts` | High | Resolved | Nén ảnh phía frontend trước khi gửi JSON, trim/normalize email và kiểm tra mật khẩu tối thiểu 6 ký tự. |
+| FE-006 | Customer/Driver hiển thị fallback giả: giá, vị trí, hồ sơ xe, trạng thái online và tự động nhận chuyến | Customer/Driver pages and stores | Critical | Resolved | Xóa mock/fallback nghiệp vụ; hiển thị loading/empty/error và chỉ cập nhật state sau API/WebSocket thành công. |
+| FE-007 | Hủy chuyến chỉ reset state local, không gọi API; modal nhận cuốc gọi API trùng với dashboard | `CustomerHomePage.tsx`, `TripOfferModal.tsx` | High | Resolved | Gọi `POST /trips/:id/cancel` trước khi reset và giao quyền accept cho dashboard để tránh request duplicate. |
+| FE-008 | Form/toast/icon button thiếu hỗ trợ accessibility và giảm chuyển động | Common components and auth/customer/driver UI | Medium | Resolved | Bổ sung `name`, `autocomplete`, `aria-*`, focus-visible, live region, trạng thái loading và reduced-motion. |
 
 ---
 

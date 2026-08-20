@@ -11,7 +11,7 @@ export const Card: React.FC<CardProps> = ({ children, className, glass = false, 
     <div
       className={twMerge(
         clsx(
-          'rounded-2xl p-5 transition-all duration-200',
+          'rounded-2xl p-5 transition-[background-color,border-color,box-shadow,transform] duration-200',
           glass
             ? 'glass-card'
             : 'bg-white border border-slate-100 shadow-sm hover:shadow-md',

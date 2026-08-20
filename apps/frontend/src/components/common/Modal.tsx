@@ -49,7 +49,7 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog */}
       <div
-        className={`relative w-full ${maxWidths[maxWidth]} bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200`}
+        className={`relative w-full ${maxWidths[maxWidth]} bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-[opacity,transform] z-10 animate-in fade-in zoom-in-95 duration-200`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (

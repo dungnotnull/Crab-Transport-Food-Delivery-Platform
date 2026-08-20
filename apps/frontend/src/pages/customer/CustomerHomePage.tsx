@@ -8,6 +8,7 @@ import { FindingRadarModal } from '../../components/customer/FindingRadarModal';
 import { TripBottomSheet } from '../../components/customer/TripBottomSheet';
 import { RatingModal } from '../../components/customer/RatingModal';
 import { useToast } from '../../components/common/Toast';
+import { getApiErrorMessage } from '../../services/auth.helpers';
 
 export const CustomerHomePage: React.FC = () => {
   const {
@@ -25,6 +26,7 @@ export const CustomerHomePage: React.FC = () => {
   } = useTripStore();
 
   const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const { showToast } = useToast();
 
   // 1. Fetch active trip on mount to restore state
@@ -51,8 +53,6 @@ export const CustomerHomePage: React.FC = () => {
   // 2. Listen to socket events
   useEffect(() => {
     const handleStatusChanged = async (data: any) => {
-      console.log('trip:status_changed', data);
-      
       if (data.status === 'CANCELLED') {
         showToast('Chuyến đi đã bị hủy!', 'warning');
         resetBooking();
@@ -63,9 +63,9 @@ export const CustomerHomePage: React.FC = () => {
       try {
         const updatedTrip = await tripService.getTripDetails(data.tripId);
         setActiveTrip(updatedTrip);
-      } catch (err) {
-        console.error('Failed to fetch updated trip details', err);
-        useTripStore.getState().setTripStatus(data.status); // Fallback
+      } catch {
+        showToast('Đã nhận trạng thái mới nhưng chưa tải được chi tiết chuyến đi.', 'warning');
+        useTripStore.getState().setTripStatus(data.status);
       }
 
       if (data.status === 'COMPLETED') {
@@ -74,7 +74,7 @@ export const CustomerHomePage: React.FC = () => {
     };
 
     const handleLocationStream = (data: any) => {
-      useTripStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng });
+      useTripStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng, heading: data.heading });
     };
 
     socketService.on('trip:status_changed', handleStatusChanged);
@@ -99,28 +99,37 @@ export const CustomerHomePage: React.FC = () => {
   };
 
   const handleCancelSearch = async () => {
-    if (activeTrip) {
-      try {
-        await tripService.cancelTrip(activeTrip.id);
-      } catch (e) {
-        console.error('Failed to cancel trip', e);
-      }
+    if (isCancelling) return;
+    if (!activeTrip) {
+      resetBooking();
+      return;
     }
-    setIsSearchingDriver(false);
-    resetBooking();
-    showToast('Đã hủy tìm kiếm tài xế', 'warning');
+
+    try {
+      setIsCancelling(true);
+      await tripService.cancelTrip(activeTrip.id);
+      resetBooking();
+      showToast('Đã hủy tìm kiếm tài xế', 'warning');
+    } catch (err) {
+      showToast(getApiErrorMessage(err, 'Không thể hủy tìm kiếm. Vui lòng thử lại.'), 'error');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const handleCancelTrip = async () => {
-    if (activeTrip) {
-      try {
-        await tripService.cancelTrip(activeTrip.id);
-      } catch (e) {
-        console.error('Failed to cancel trip', e);
-      }
+    if (!activeTrip || isCancelling) return;
+
+    try {
+      setIsCancelling(true);
+      await tripService.cancelTrip(activeTrip.id);
+      resetBooking();
+      showToast('Đã hủy chuyến đi thành công', 'warning');
+    } catch (err) {
+      showToast(getApiErrorMessage(err, 'Không thể hủy chuyến đi. Vui lòng thử lại.'), 'error');
+    } finally {
+      setIsCancelling(false);
     }
-    resetBooking();
-    showToast('Đã hủy chuyến đi thành công', 'warning');
   };
 
   return (
@@ -159,10 +168,7 @@ export const CustomerHomePage: React.FC = () => {
       {isSearchingDriver && (
         <FindingRadarModal
           onCancel={handleCancelSearch}
-          onDriverFoundMock={() => {
-            // Do not use mock anymore, wait for socket
-            showToast('Đang chờ tài xế nhận cuốc (qua WebSocket)...', 'info');
-          }}
+          isCancelling={isCancelling}
         />
       )}
 
