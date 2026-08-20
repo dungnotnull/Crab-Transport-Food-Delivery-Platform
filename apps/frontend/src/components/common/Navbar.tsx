@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from './Button';
 import { Badge } from './Badge';
-import { LogOut, Shield, Car, Navigation, User, Bike } from 'lucide-react';
+import { LogOut, Shield, Car, UserRound } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -82,16 +82,19 @@ export const Navbar: React.FC = () => {
           {isAuthenticated && user ? (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 p-1.5 pr-3 rounded-2xl">
-                <img
-                  src={
-                    user.avatar_url ||
-                    (user.role === 'DRIVER'
-                      ? 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100'
-                      : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100')
-                  }
-                  alt={user.full_name}
-                  className="w-8 h-8 rounded-xl object-cover border border-[#00B14F]"
-                />
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={`Ảnh đại diện của ${user.full_name}`}
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-xl object-cover border border-[#00B14F]"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#00B14F] border border-emerald-200 flex items-center justify-center">
+                    <UserRound className="w-4 h-4" aria-hidden="true" />
+                  </div>
+                )}
                 <div className="text-left">
                   <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <span className="truncate max-w-[110px]">{user.full_name}</span>
@@ -114,6 +117,8 @@ export const Navbar: React.FC = () => {
 
               {/* Logout button */}
               <button
+                type="button"
+                aria-label="Đăng xuất khỏi hệ thống"
                 onClick={handleLogout}
                 title="Đăng xuất khỏi hệ thống"
                 className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"

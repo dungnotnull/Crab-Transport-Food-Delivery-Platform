@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/common/Toast';
 import { Navbar } from './components/common/Navbar';
-import { DevSimulatorWidget } from './components/common/DevSimulatorWidget';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { CustomerHomePage } from './pages/customer/CustomerHomePage';
@@ -63,8 +62,6 @@ export const App: React.FC = () => {
             </Routes>
           </main>
 
-          {/* Dev Simulator floating widget */}
-          <DevSimulatorWidget />
         </div>
       </Router>
     </ToastProvider>

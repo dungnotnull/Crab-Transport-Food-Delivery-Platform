@@ -7,8 +7,9 @@ import { Input } from '../../components/common/Input';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../components/common/Toast';
-import { Mail, Lock, User, Phone, Car, Upload, CheckCircle2, Image as ImageIcon, X } from 'lucide-react';
+import { Mail, Lock, User, Phone, Car, Upload, CheckCircle2, X } from 'lucide-react';
 import { VehicleType } from '../../types/user.types';
+import { optimizeImageFile } from '../../utils/image.utils';
 
 export const RegisterPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -23,10 +24,10 @@ export const RegisterPage: React.FC = () => {
   const [avatarData, setAvatarData] = useState<string>('');
 
   // Driver Specific Fields
-  const [licensePlate, setLicensePlate] = useState('51H-888.88');
+  const [licensePlate, setLicensePlate] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType>('CAR_4');
-  const [vehicleBrand, setVehicleBrand] = useState('Toyota Vios 1.5G');
-  const [color, setColor] = useState('Trắng Ánh Kim');
+  const [vehicleBrand, setVehicleBrand] = useState('');
+  const [color, setColor] = useState('');
   const [vehicleImageData, setVehicleImageData] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -34,8 +35,7 @@ export const RegisterPage: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // Xử lý upload ảnh trực tiếp từ thiết bị
-  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -46,16 +46,16 @@ export const RegisterPage: React.FC = () => {
         showToast('Kích thước ảnh tối đa là 5MB!', 'warning');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setAvatarData(event.target?.result as string);
+      try {
+        setAvatarData(await optimizeImageFile(file, 30 * 1024));
         showToast('Đã tải ảnh đại diện thành công!', 'success');
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Không thể xử lý ảnh đại diện', 'error');
+      }
     }
   };
 
-  const handleVehicleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVehicleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -66,24 +66,35 @@ export const RegisterPage: React.FC = () => {
         showToast('Kích thước ảnh xe tối đa là 5MB!', 'warning');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setVehicleImageData(event.target?.result as string);
+      try {
+        setVehicleImageData(await optimizeImageFile(file, 30 * 1024));
         showToast('Đã tải ảnh phương tiện thành công!', 'success');
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Không thể xử lý ảnh phương tiện', 'error');
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!fullName || !email || !phoneNumber || !password) {
+    const normalizedFullName = fullName.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhoneNumber = phoneNumber.trim();
+    const normalizedLicensePlate = licensePlate.trim();
+    const normalizedVehicleBrand = vehicleBrand.trim();
+
+    if (!normalizedFullName || !normalizedEmail || !normalizedPhoneNumber || !password) {
       showToast('Vui lòng điền đầy đủ các thông tin bắt buộc!', 'warning');
       return;
     }
 
-    if (role === 'DRIVER' && (!licensePlate || !vehicleBrand)) {
+    if (password.length < 6) {
+      showToast('Mật khẩu phải có ít nhất 6 ký tự!', 'warning');
+      return;
+    }
+
+    if (role === 'DRIVER' && (!normalizedLicensePlate || !normalizedVehicleBrand)) {
       showToast('Tài xế bắt buộc phải nhập biển số xe và hiệu xe!', 'warning');
       return;
     }
@@ -91,39 +102,29 @@ export const RegisterPage: React.FC = () => {
     try {
       setIsLoading(true);
 
-      const defaultAvatar =
-        role === 'DRIVER'
-          ? 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150'
-          : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
-
-      const defaultVehicleImg =
-        vehicleType === 'CAR_7'
-          ? 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400'
-          : 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400';
-
       let data;
       if (role === 'DRIVER') {
         data = await authService.registerDriver({
-          email,
+          email: normalizedEmail,
           password,
-          full_name: fullName,
-          phone_number: phoneNumber,
+          full_name: normalizedFullName,
+          phone_number: normalizedPhoneNumber,
           role: 'DRIVER',
-          avatar_url: avatarData || defaultAvatar,
-          license_plate: licensePlate,
+          avatar_url: avatarData || undefined,
+          license_plate: normalizedLicensePlate,
           vehicle_type: vehicleType,
-          vehicle_brand: vehicleBrand,
-          color,
-          vehicle_image: vehicleImageData || defaultVehicleImg,
+          vehicle_brand: normalizedVehicleBrand,
+          color: color.trim() || undefined,
+          vehicle_image: vehicleImageData || undefined,
         });
       } else {
         data = await authService.registerCustomer({
-          email,
+          email: normalizedEmail,
           password,
-          full_name: fullName,
-          phone_number: phoneNumber,
+          full_name: normalizedFullName,
+          phone_number: normalizedPhoneNumber,
           role: 'CUSTOMER',
-          avatar_url: avatarData || defaultAvatar,
+          avatar_url: avatarData || undefined,
         });
       }
 
@@ -135,8 +136,11 @@ export const RegisterPage: React.FC = () => {
       } else {
         navigate('/customer');
       }
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin!', 'error');
+    } catch (err: unknown) {
+      showToast(
+        authService.getErrorMessage(err, 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin!'),
+        'error',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +166,8 @@ export const RegisterPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setRole('CUSTOMER')}
-              className={`py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+              aria-pressed={role === 'CUSTOMER'}
+              className={`py-2.5 rounded-xl text-xs font-extrabold transition-[background-color,color,box-shadow] flex items-center justify-center gap-2 ${
                 role === 'CUSTOMER'
                   ? 'bg-white text-slate-900 shadow-md shadow-slate-200/60'
                   : 'text-slate-500 hover:text-slate-800'
@@ -174,7 +179,8 @@ export const RegisterPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setRole('DRIVER')}
-              className={`py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+              aria-pressed={role === 'DRIVER'}
+              className={`py-2.5 rounded-xl text-xs font-extrabold transition-[background-color,color,box-shadow] flex items-center justify-center gap-2 ${
                 role === 'DRIVER'
                   ? 'bg-white text-slate-900 shadow-md shadow-slate-200/60'
                   : 'text-slate-500 hover:text-slate-800'
@@ -197,19 +203,23 @@ export const RegisterPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Input
                 label="Họ và tên"
+                name="full_name"
                 placeholder="Nguyễn Văn A"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 leftIcon={<User className="w-4 h-4" />}
+                autoComplete="name"
                 required
               />
 
               <Input
                 label="Số điện thoại"
+                name="phone_number"
                 placeholder="0987654321"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 leftIcon={<Phone className="w-4 h-4" />}
+                autoComplete="tel"
                 required
               />
             </div>
@@ -217,21 +227,26 @@ export const RegisterPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Input
                 label="Email"
+                name="email"
                 type="email"
                 placeholder="nhap.email@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 leftIcon={<Mail className="w-4 h-4" />}
+                autoComplete="email"
+                spellCheck={false}
                 required
               />
 
               <Input
                 label="Mật khẩu"
+                name="password"
                 type="password"
                 placeholder="Tối thiểu 6 ký tự"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 leftIcon={<Lock className="w-4 h-4" />}
+                autoComplete="new-password"
                 required
               />
             </div>
@@ -299,7 +314,7 @@ export const RegisterPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setVehicleType('BIKE')}
-                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all ${
+                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-[background-color,border-color,box-shadow,color] ${
                         vehicleType === 'BIKE'
                           ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F] shadow-sm'
                           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -312,7 +327,7 @@ export const RegisterPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setVehicleType('CAR_4')}
-                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all ${
+                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-[background-color,border-color,box-shadow,color] ${
                         vehicleType === 'CAR_4'
                           ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F] shadow-sm'
                           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -325,7 +340,7 @@ export const RegisterPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setVehicleType('CAR_7')}
-                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all ${
+                      className={`p-2.5 rounded-xl border-2 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-[background-color,border-color,box-shadow,color] ${
                         vehicleType === 'CAR_7'
                           ? 'border-[#00B14F] bg-emerald-50 text-[#00B14F] shadow-sm'
                           : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -341,6 +356,7 @@ export const RegisterPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Biển số xe"
+                    name="license_plate"
                     placeholder="VD: 51H-888.88"
                     value={licensePlate}
                     onChange={(e) => setLicensePlate(e.target.value)}
@@ -349,6 +365,7 @@ export const RegisterPage: React.FC = () => {
 
                   <Input
                     label="Hiệu xe / Dòng xe"
+                    name="vehicle_brand"
                     placeholder="VD: Toyota Vios, Xpander, Accent"
                     value={vehicleBrand}
                     onChange={(e) => setVehicleBrand(e.target.value)}
@@ -359,6 +376,7 @@ export const RegisterPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Màu sắc xe"
+                    name="color"
                     placeholder="VD: Trắng Ánh Kim, Đen, Bạc"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}

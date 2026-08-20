@@ -5,7 +5,7 @@ import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { useToast } from '../../components/common/Toast';
-import { Shield, Users, Car, CloudRain, Star, DollarSign, Activity, RefreshCw } from 'lucide-react';
+import { Shield, Users, Car, CloudRain, Star, DollarSign, Activity, RefreshCw, UserRound } from 'lucide-react';
 
 export const AdminOverviewPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
@@ -215,17 +215,26 @@ export const AdminOverviewPage: React.FC = () => {
                 drivers.map((drv) => (
                   <tr key={drv.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 flex items-center gap-2.5">
-                      <img
-                        src={drv.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=80'}
-                        alt={drv.full_name}
-                        className="w-8 h-8 rounded-full object-cover border"
-                      />
+                      {drv.avatar_url ? (
+                        <img
+                          src={drv.avatar_url}
+                          alt={`Ảnh đại diện của ${drv.full_name}`}
+                          width={32}
+                          height={32}
+                          loading="lazy"
+                          className="w-8 h-8 rounded-full object-cover border"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00B14F] border flex items-center justify-center">
+                          <UserRound className="w-4 h-4" aria-hidden="true" />
+                        </div>
+                      )}
                       <span className="font-bold">{drv.full_name}</span>
                     </td>
                     <td className="py-3 px-4 text-slate-500">{drv.phone_number || drv.email}</td>
                     <td className="py-3 px-4">
                       <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                        {drv.driverProfile?.vehicle_type || 'BIKE'}
+                        {drv.driverProfile?.vehicle_type || 'Chưa cập nhật'}
                       </span>
                     </td>
                     <td className="py-3 px-4">
@@ -234,7 +243,7 @@ export const AdminOverviewPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-slate-600">
-                      {drv.driverProfile?.color || 'Xanh Lá'}
+                      {drv.driverProfile?.color || 'Chưa cập nhật'}
                     </td>
                     <td className="py-3 px-4">
                       <Badge variant={drv.is_active !== false ? 'success' : 'danger'} size="sm">
@@ -296,11 +305,20 @@ export const AdminOverviewPage: React.FC = () => {
                 customers.map((cust) => (
                   <tr key={cust.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 flex items-center gap-2.5">
-                      <img
-                        src={cust.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80'}
-                        alt={cust.full_name}
-                        className="w-8 h-8 rounded-full object-cover border"
-                      />
+                      {cust.avatar_url ? (
+                        <img
+                          src={cust.avatar_url}
+                          alt={`Ảnh đại diện của ${cust.full_name}`}
+                          width={32}
+                          height={32}
+                          loading="lazy"
+                          className="w-8 h-8 rounded-full object-cover border"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-[#00B14F] border flex items-center justify-center">
+                          <UserRound className="w-4 h-4" aria-hidden="true" />
+                        </div>
+                      )}
                       <span className="font-bold">{cust.full_name}</span>
                     </td>
                     <td className="py-3 px-4 text-slate-500">{cust.email}</td>

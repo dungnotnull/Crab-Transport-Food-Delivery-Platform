@@ -1,119 +1,98 @@
 import { apiClient } from './api';
 import { ApiResponse } from '../types/api.types';
-import { AuthResponseData, RegisterCustomerDto, RegisterDriverDto, User } from '../types/user.types';
+import { AuthResponseData, RegisterCustomerDto, RegisterDriverDto } from '../types/user.types';
+import {
+  getApiErrorMessage,
+  isApiConflictError,
+  isAuthUnauthorizedError,
+  normalizeAuthResponse,
+} from './auth.helpers';
 
-/**
- * Hàm decode JWT payload an toàn không cần thư viện ngoài
- */
-function parseJwt(token: string): any {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    return null;
-  }
-}
+const SAMPLE_CUSTOMER: RegisterCustomerDto = {
+  email: 'customer@crab.com',
+  password: 'password123',
+  full_name: 'Nguyễn Văn Customer',
+  phone_number: '0900000001',
+  role: 'CUSTOMER',
+  avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+};
+
+const SAMPLE_DRIVER: RegisterDriverDto = {
+  email: 'driver1@crab.com',
+  password: 'password123',
+  full_name: 'Trần Văn Tài Xế',
+  phone_number: '0900000002',
+  role: 'DRIVER',
+  avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
+  license_plate: '51H-888.88',
+  vehicle_type: 'CAR_4',
+  vehicle_brand: 'Toyota Vios 1.5G',
+  color: 'Trắng Ánh Kim',
+  vehicle_image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400',
+};
 
 export const authService = {
-  /**
-   * Đăng nhập với Email & Password (Gọi trực tiếp DB Backend NestJS)
-   */
   async login(credentials: { email: string; password: string }): Promise<AuthResponseData> {
-    const res = await apiClient.post<ApiResponse<{ access_token?: string; accessToken?: string; user?: User }>>(
-      '/auth/login',
-      credentials
-    );
+    const res = await apiClient.post<
+      ApiResponse<{ access_token?: string; accessToken?: string; user?: AuthResponseData['user'] }>
+    >('/auth/login', credentials);
 
-    const data = res.data.data;
-    const token = data.access_token || data.accessToken || '';
-    const decoded = parseJwt(token);
-
-    const user: User = data.user || {
-      id: decoded?.sub || `usr_${Date.now()}`,
-      email: decoded?.email || credentials.email,
-      full_name: decoded?.full_name || (decoded?.role === 'ADMIN' ? 'System Administrator' : credentials.email.split('@')[0]),
-      role: decoded?.role || (credentials.email.includes('admin') ? 'ADMIN' : credentials.email.includes('driver') ? 'DRIVER' : 'CUSTOMER'),
-      avatar_url: decoded?.role === 'DRIVER'
-        ? 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150'
-        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-      driverProfile: decoded?.role === 'DRIVER'
-        ? {
-            license_plate: '51H-888.88',
-            vehicle_type: 'CAR_4',
-            vehicle_brand: 'Toyota Vios 1.5G',
-            color: 'Trắng Ánh Kim',
-            average_rating: 5.0,
-            is_online: true,
-          }
-        : null,
-      walletBalance: decoded?.role === 'DRIVER' ? 250000 : undefined,
-    };
-
-    return {
-      accessToken: token,
-      user,
-    };
+    return normalizeAuthResponse(res.data.data);
   },
 
-  /**
-   * Đăng ký tài khoản Khách hàng trực tiếp vào Database Backend
-   */
   async registerCustomer(dto: RegisterCustomerDto): Promise<AuthResponseData> {
-    // 1. Gọi API Backend đăng ký vào DB
-    await apiClient.post<ApiResponse<any>>('/auth/register', {
+    await apiClient.post<ApiResponse<unknown>>('/auth/register', {
       email: dto.email,
       password: dto.password,
       full_name: dto.full_name,
       phone_number: dto.phone_number,
-      role: 'CUSTOMER',
+      role: dto.role,
+      avatar_url: dto.avatar_url,
     });
 
-    // 2. Đăng nhập ngay sau khi đăng ký để lấy Token thực từ Backend DB
     return this.login({ email: dto.email, password: dto.password });
   },
 
-  /**
-   * Đăng ký tài khoản Tài xế chi tiết (Xe + Biển số + Hình ảnh) trực tiếp vào DB Backend
-   */
   async registerDriver(dto: RegisterDriverDto): Promise<AuthResponseData> {
-    // 1. Gửi payload đăng ký Driver tới Backend NestJS
-    await apiClient.post<ApiResponse<any>>('/auth/register', {
+    await apiClient.post<ApiResponse<unknown>>('/auth/register', {
       email: dto.email,
       password: dto.password,
       full_name: dto.full_name,
       phone_number: dto.phone_number,
-      role: 'DRIVER',
+      role: dto.role,
+      avatar_url: dto.avatar_url,
       license_plate: dto.license_plate,
       vehicle_type: dto.vehicle_type,
       vehicle_brand: dto.vehicle_brand,
-      color: dto.color || 'Trắng Ánh Kim',
+      color: dto.color,
       vehicle_image: dto.vehicle_image,
     });
 
-    // 2. Đăng nhập để nhận Token thực từ Backend DB
-    const authData = await this.login({ email: dto.email, password: dto.password });
-    
-    // Bổ sung thông tin chi tiết xe vào Profile hiển thị
-    if (authData.user) {
-      authData.user.driverProfile = {
-        license_plate: dto.license_plate,
-        vehicle_type: dto.vehicle_type,
-        vehicle_brand: dto.vehicle_brand,
-        color: dto.color,
-        vehicle_image: dto.vehicle_image,
-        average_rating: 5.0,
-        is_online: false,
-      };
-      authData.user.avatar_url = dto.avatar_url;
-    }
+    return this.login({ email: dto.email, password: dto.password });
+  },
 
-    return authData;
+  async loginSample(role: 'CUSTOMER' | 'DRIVER'): Promise<AuthResponseData> {
+    const sample = role === 'DRIVER' ? SAMPLE_DRIVER : SAMPLE_CUSTOMER;
+
+    try {
+      return await this.login(sample);
+    } catch (error) {
+      if (!isAuthUnauthorizedError(error)) throw error;
+
+      try {
+        return role === 'DRIVER'
+          ? await this.registerDriver(SAMPLE_DRIVER)
+          : await this.registerCustomer(SAMPLE_CUSTOMER);
+      } catch (registrationError) {
+        if (isApiConflictError(registrationError)) {
+          return this.login(sample);
+        }
+        throw registrationError;
+      }
+    }
+  },
+
+  getErrorMessage(error: unknown, fallback: string): string {
+    return getApiErrorMessage(error, fallback);
   },
 };

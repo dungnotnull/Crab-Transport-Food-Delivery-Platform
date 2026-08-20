@@ -13,8 +13,8 @@ interface DriverState {
 }
 
 export const useDriverStore = create<DriverState>((set) => ({
-  isOnline: true,
-  currentLocation: { lat: 10.783, lng: 106.696 }, // Vị trí tài xế gần Halo Building
+  isOnline: false,
+  currentLocation: null,
   incomingOffer: null,
   activeTripId: null,
 

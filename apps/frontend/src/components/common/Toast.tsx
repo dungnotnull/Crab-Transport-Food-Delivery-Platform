@@ -36,6 +36,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map((toast) => (
           <div
             key={toast.id}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             className={`pointer-events-auto flex items-center gap-3 px-4 py-3.5 rounded-2xl shadow-xl border text-sm font-medium animate-in slide-in-from-top-3 duration-200 ${
               toast.type === 'success'
                 ? 'bg-emerald-900/90 text-white border-emerald-700/50 backdrop-blur-md'
@@ -54,8 +57,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <span className="flex-1">{toast.message}</span>
 
             <button
+              type="button"
+              aria-label="Đóng thông báo"
               onClick={() => removeToast(toast.id)}
-              className="text-white/60 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 rounded-md"
             >
               <X className="w-4 h-4" />
             </button>

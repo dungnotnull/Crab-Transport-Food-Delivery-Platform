@@ -3,20 +3,18 @@ import { useTripStore } from '../../stores/tripStore';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
-import { X, ShieldCheck, MapPin, Radio } from 'lucide-react';
-import { useToast } from '../common/Toast';
+import { X, MapPin, Radio } from 'lucide-react';
 
 interface FindingRadarModalProps {
   onCancel: () => void;
-  onDriverFoundMock?: () => void;
+  isCancelling?: boolean;
 }
 
 export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
   onCancel,
-  onDriverFoundMock,
+  isCancelling = false,
 }) => {
-  const { pickup, dropoff, serviceType, activeTrip, setTripStatus, setDriverLocation } = useTripStore();
-  const { showToast } = useToast();
+  const { pickup, dropoff, serviceType, activeTrip } = useTripStore();
   const [searchSeconds, setSearchSeconds] = useState(0);
 
   // Đếm thời gian tìm kiếm
@@ -26,26 +24,6 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  // Tự động giả lập có tài xế nhận cuốc sau 5s nếu test
-  useEffect(() => {
-    const autoMockTimer = setTimeout(() => {
-      if (onDriverFoundMock) {
-        onDriverFoundMock();
-      } else {
-        // Tự động chuyển sang ACCEPTED
-        setTripStatus('ACCEPTED');
-        setDriverLocation({
-          lat: pickup.lat + 0.003,
-          lng: pickup.lng + 0.003,
-          heading: 210,
-        });
-        showToast('🎉 Đã tìm thấy tài xế! Tài xế đang di chuyển đến điểm đón.', 'success');
-      }
-    }, 6000);
-
-    return () => clearTimeout(autoMockTimer);
-  }, [onDriverFoundMock, pickup, setDriverLocation, setTripStatus, showToast]);
 
   const mins = Math.floor(searchSeconds / 60);
   const secs = searchSeconds % 60;
@@ -85,7 +63,7 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
         <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3.5 my-4 text-left flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-800 truncate">
             <MapPin className="w-3.5 h-3.5 text-[#00B14F] shrink-0" />
-            <span className="truncate">Điểm đón: {pickup.address || 'Tòa nhà Halo Building'}</span>
+            <span className="truncate">Điểm đón: {pickup.address || 'Địa chỉ đang cập nhật'}</span>
           </div>
           {dropoff && (
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 truncate">
@@ -96,7 +74,7 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
           <div className="pt-2 border-t border-slate-200/70 flex justify-between items-center text-xs">
             <span className="text-slate-500 font-medium">Giá cước dự tính:</span>
             <span className="font-extrabold text-[#00B14F]">
-              {formatCurrency(activeTrip?.total_fare || 25000)}
+              {activeTrip ? formatCurrency(activeTrip.total_fare) : 'Đang cập nhật'}
             </span>
           </div>
         </div>
@@ -105,6 +83,8 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
         <Button
           variant="secondary"
           onClick={onCancel}
+          isLoading={isCancelling}
+          disabled={isCancelling}
           className="w-full text-sm font-bold text-red-600 hover:bg-red-50 hover:text-red-700"
           leftIcon={<X className="w-4 h-4" />}
         >

@@ -5,12 +5,11 @@ import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { formatDistance, formatDuration } from '../../utils/geo.utils';
 import { MapPin, Navigation, DollarSign, BellRing } from 'lucide-react';
-import { driverService } from '../../services/driver.service';
 import { useToast } from '../common/Toast';
 
 interface TripOfferModalProps {
   offer: DriverTripOfferPayload | null;
-  onAccept: (tripId: string) => void;
+  onAccept: (tripId: string) => Promise<void> | void;
   onDecline: () => void;
 }
 
@@ -45,18 +44,14 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
   const handleAcceptTrip = async () => {
     try {
       setIsAccepting(true);
-      await driverService.acceptTrip(offer.tripId);
-      showToast('🎉 Nhận cuốc thành công! Hãy di chuyển đến điểm đón.', 'success');
-      onAccept(offer.tripId);
+      await onAccept(offer.tripId);
     } catch (err: any) {
       if (err.response?.status === 409) {
         // Concurrency / Race condition
         showToast('Cuốc xe đã được tài xế khác tiếp nhận trước!', 'error');
         onDecline();
       } else {
-        // Mock fallback success for dev testing
-        showToast('Nhận cuốc thành công (Demo Mock)', 'success');
-        onAccept(offer.tripId);
+        showToast('Không thể nhận cuốc. Vui lòng thử lại.', 'error');
       }
     } finally {
       setIsAccepting(false);
@@ -92,7 +87,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
                 fill="none"
-                className="transition-all duration-1000 ease-linear"
+                className="transition-[stroke-dashoffset,stroke] duration-1000 ease-linear"
               />
             </svg>
             <span className={`absolute font-black text-sm ${timeLeft <= 5 ? 'text-red-500' : 'text-slate-800'}`}>
@@ -112,7 +107,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
           <div className="text-right">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quãng đường</span>
             <div className="text-sm font-extrabold text-slate-800">
-              {formatDistance(offer.distance || 3200)}
+              {typeof offer.distance === 'number' ? formatDistance(offer.distance) : 'Đang cập nhật'}
             </div>
           </div>
         </div>
@@ -123,7 +118,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
             <MapPin className="w-4 h-4 text-[#00B14F] shrink-0 mt-0.5" />
             <div>
               <span className="font-bold text-slate-500 text-[10px] uppercase">Đón tại:</span>
-              <p className="font-bold text-slate-800">{offer.pickup.address || 'Tòa nhà Halo Building'}</p>
+              <p className="font-bold text-slate-800">{offer.pickup.address || 'Địa chỉ đang cập nhật'}</p>
             </div>
           </div>
 
@@ -131,7 +126,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
             <Navigation className="w-4 h-4 text-[#EF4444] shrink-0 mt-0.5" />
             <div>
               <span className="font-bold text-slate-500 text-[10px] uppercase">Giao tại:</span>
-              <p className="font-bold text-slate-800">{offer.dropoff.address || 'Chợ Bến Thành, Quận 1'}</p>
+              <p className="font-bold text-slate-800">{offer.dropoff.address || 'Địa chỉ đang cập nhật'}</p>
             </div>
           </div>
         </div>

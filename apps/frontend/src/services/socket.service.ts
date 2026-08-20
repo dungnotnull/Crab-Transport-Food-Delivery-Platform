@@ -15,14 +15,6 @@ class SocketService {
       transports: ['websocket'],
     });
 
-    this.socket.on('connect', () => {
-      console.log('✅ Connected to WebSocket Gateway:', this.socket?.id);
-    });
-
-    this.socket.on('disconnect', () => {
-      console.log('❌ Disconnected from WebSocket Gateway');
-    });
-
     // Register all active listeners
     this.listeners.forEach((callbacks, event) => {
       callbacks.forEach(cb => {

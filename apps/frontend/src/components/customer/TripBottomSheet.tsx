@@ -4,7 +4,7 @@ import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { TripStatus } from '../../types/trip.types';
-import { Phone, MessageSquare, ShieldCheck, Star, X, CheckCircle2, ChevronUp } from 'lucide-react';
+import { Phone, MessageSquare, Star, UserRound } from 'lucide-react';
 import { useToast } from '../common/Toast';
 
 interface TripBottomSheetProps {
@@ -13,7 +13,7 @@ interface TripBottomSheetProps {
 }
 
 export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, onOpenRating }) => {
-  const { activeTrip, setTripStatus } = useTripStore();
+  const { activeTrip } = useTripStore();
   const { showToast } = useToast();
 
   if (!activeTrip || activeTrip.status === 'FINDING_DRIVER') return null;
@@ -88,7 +88,7 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
         {[1, 2, 3, 4, 5].map((s) => (
           <div
             key={s}
-            className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+            className={`h-1.5 flex-1 rounded-full transition-[background-color] duration-500 ${
               s <= info.step ? 'bg-[#00B14F]' : 'bg-slate-200'
             }`}
           />
@@ -99,24 +99,35 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
       <div className="flex items-center justify-between bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <img
-              src={activeTrip.driver?.driverProfile?.vehicle_image || "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120"}
-              alt="Driver Avatar"
-              className="w-12 h-12 rounded-full object-cover border-2 border-[#00B14F]"
-            />
+            {activeTrip.driver?.avatar_url ? (
+              <img
+                src={activeTrip.driver.avatar_url}
+                alt={`Ảnh đại diện của ${activeTrip.driver.full_name || 'tài xế'}`}
+                width={48}
+                height={48}
+                loading="lazy"
+                className="w-12 h-12 rounded-full object-cover border-2 border-[#00B14F]"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-[#00B14F] border-2 border-emerald-200 flex items-center justify-center">
+                <UserRound className="w-6 h-6" aria-hidden="true" />
+              </div>
+            )}
             <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
           </div>
 
           <div>
             <div className="flex items-center gap-1.5">
-              <h4 className="text-sm font-black text-slate-900">{activeTrip.driver?.full_name || 'Tài xế'}</h4>
-              <span className="text-xs font-bold text-amber-500 flex items-center gap-0.5">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                {activeTrip.driver?.driverProfile?.average_rating?.toFixed(1) || '5.0'}
-              </span>
+              <h4 className="text-sm font-black text-slate-900">{activeTrip.driver?.full_name || 'Tài xế đang cập nhật'}</h4>
+              {typeof activeTrip.driver?.driverProfile?.average_rating === 'number' && (
+                <span className="text-xs font-bold text-amber-500 flex items-center gap-0.5">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  {activeTrip.driver.driverProfile.average_rating.toFixed(1)}
+                </span>
+              )}
             </div>
             <p className="text-xs font-semibold text-slate-600">
-              {activeTrip.driver?.driverProfile?.vehicle_brand || 'Xe'} • <span className="font-extrabold text-slate-900 bg-slate-200/80 px-1.5 py-0.5 rounded">{activeTrip.driver?.driverProfile?.license_plate || '---'}</span>
+              {activeTrip.driver?.driverProfile?.vehicle_brand || 'Hãng xe chưa cập nhật'} • <span className="font-extrabold text-slate-900 bg-slate-200/80 px-1.5 py-0.5 rounded">{activeTrip.driver?.driverProfile?.license_plate || 'Biển số chưa cập nhật'}</span>
             </p>
           </div>
         </div>
@@ -124,12 +135,16 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
         {/* Quick Contact Buttons */}
         <div className="flex items-center gap-1.5">
           <button
+            type="button"
+            aria-label="Gọi cho tài xế"
             onClick={() => showToast('Đang gọi điện cho tài xế...', 'info')}
             className="w-9 h-9 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-[#00B14F] flex items-center justify-center transition-colors"
           >
             <Phone className="w-4 h-4" />
           </button>
           <button
+            type="button"
+            aria-label="Nhắn tin cho tài xế"
             onClick={() => showToast('Mở hộp thoại chat...', 'info')}
             className="w-9 h-9 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-600 flex items-center justify-center transition-colors"
           >
