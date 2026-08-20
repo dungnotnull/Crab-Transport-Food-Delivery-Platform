@@ -6,7 +6,7 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Card } from '../../components/common/Card';
 import { useToast } from '../../components/common/Toast';
-import { Lock, Mail, Shield, User, Car, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -52,28 +52,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleSampleLogin = async (role: 'CUSTOMER' | 'DRIVER') => {
-    try {
-      setIsLoading(true);
-      const data = await authService.loginSample(role);
-      login(data.user, data.accessToken);
-      showToast(`Đăng nhập tài khoản mẫu thành công! Xin chào ${data.user.full_name}`, 'success');
-      navigateByRole(data.user.role);
-    } catch (err: unknown) {
-      showToast(
-        authService.getErrorMessage(err, 'Không thể tạo tài khoản mẫu. Vui lòng kiểm tra kết nối máy chủ.'),
-        'error',
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAdminQuickFill = () => {
-    setEmail('admin@crab.com');
-    setPassword('adminpassword');
-  };
-
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-emerald-50/40">
       <div className="w-full max-w-md">
@@ -87,42 +65,6 @@ export const LoginPage: React.FC = () => {
             <p className="text-xs text-slate-500 font-medium mt-1">
               Hệ thống đặt xe ô tô công nghệ 4 chỗ & 7 chỗ trực tuyến
             </p>
-          </div>
-
-          {/* Quick Demo Role Selector */}
-          <div className="mb-5 p-2.5 bg-slate-100/90 rounded-2xl border border-slate-200/60">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block px-1 mb-1.5">
-              Tài khoản mẫu (tự tạo nếu chưa tồn tại):
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleSampleLogin('CUSTOMER')}
-                disabled={isLoading}
-                className="py-2 px-2 bg-white hover:bg-emerald-50 text-slate-700 hover:text-[#00B14F] rounded-xl text-xs font-bold transition-[background-color,color,box-shadow] shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
-              >
-                <User className="w-3.5 h-3.5 text-[#00B14F]" />
-                Khách
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSampleLogin('DRIVER')}
-                disabled={isLoading}
-                className="py-2 px-2 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-600 rounded-xl text-xs font-bold transition-[background-color,color,box-shadow] shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
-              >
-                <Car className="w-3.5 h-3.5 text-amber-500" />
-                Tài xế
-              </button>
-              <button
-                type="button"
-                onClick={handleAdminQuickFill}
-                disabled={isLoading}
-                className="py-2 px-2 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-xl text-xs font-bold transition-[background-color,color,box-shadow] shadow-xs flex items-center justify-center gap-1 border border-slate-200/60"
-              >
-                <Shield className="w-3.5 h-3.5 text-blue-500" />
-                Admin
-              </button>
-            </div>
           </div>
 
           {/* Login Form */}

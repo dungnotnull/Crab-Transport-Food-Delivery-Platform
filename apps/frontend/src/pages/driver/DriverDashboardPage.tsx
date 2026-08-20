@@ -40,8 +40,8 @@ export const DriverDashboardPage: React.FC = () => {
   // 1. Fetch real wallet & restore active trip on mount
   useEffect(() => {
     driverService.getWalletDetails().then((wallet) => {
-      if (typeof wallet?.balance === 'number') {
-        setWalletBalance(wallet.balance);
+      if (wallet && wallet.balance !== undefined) {
+        setWalletBalance(Number(wallet.balance));
       }
     }).catch(() => {
       showToast('Chưa thể tải số dư ví tài xế.', 'warning');
@@ -263,7 +263,7 @@ export const DriverDashboardPage: React.FC = () => {
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Đánh giá trung bình</span>
             <div className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-1.5">
-              <span>{driverProfile?.average_rating?.toFixed(1) || 'Chưa có'}</span>
+              <span>{driverProfile?.average_rating ? Number(driverProfile.average_rating).toFixed(1) : 'Chưa có'}</span>
               <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
             </div>
             <p className="text-[11px] text-slate-500 font-medium mt-1">Dữ liệu từ bảng reviews</p>
@@ -325,11 +325,11 @@ export const DriverDashboardPage: React.FC = () => {
           <div className="flex flex-col gap-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
               <MapPin className="w-4 h-4 text-[#00B14F]" />
-              <span>Đón khách tại: <strong>{activeTrip?.pickup_location.address || 'Địa chỉ đang cập nhật'}</strong></span>
+              <span>Đón khách tại: <strong>{activeTrip?.pickup_location?.address || 'Địa chỉ đang cập nhật'}</strong></span>
             </div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
               <Navigation className="w-4 h-4 text-[#EF4444]" />
-              <span>Trả khách tại: <strong>{activeTrip?.dropoff_location.address || 'Địa chỉ đang cập nhật'}</strong></span>
+              <span>Trả khách tại: <strong>{activeTrip?.dropoff_location?.address || 'Địa chỉ đang cập nhật'}</strong></span>
             </div>
           </div>
 

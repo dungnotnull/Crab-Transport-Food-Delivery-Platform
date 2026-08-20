@@ -80,7 +80,7 @@ export class WalletsService {
     wallet.balance = Number(wallet.balance) + amountChanged;
 
     const minBalance = await this.systemConfigsService.getValue('MIN_WALLET_BALANCE');
-    if (wallet.balance < minBalance) {
+    if (Number(wallet.balance) < minBalance) {
       wallet.status = WalletStatus.BLOCKED;
     } else {
       wallet.status = WalletStatus.ACTIVE;

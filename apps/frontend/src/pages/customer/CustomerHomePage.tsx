@@ -68,6 +68,10 @@ export const CustomerHomePage: React.FC = () => {
         useTripStore.getState().setTripStatus(data.status);
       }
 
+      if (data.status !== 'FINDING_DRIVER') {
+        setIsSearchingDriver(false);
+      }
+
       if (data.status === 'COMPLETED') {
         setIsRatingOpen(true);
       }

@@ -208,7 +208,7 @@ export class OrdersService {
   validateStateTransition(current: OrderStatus, next: OrderStatus): boolean {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       [OrderStatus.FINDING_DRIVER]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
-      [OrderStatus.ACCEPTED]: [OrderStatus.DRIVER_ARRIVING, OrderStatus.CANCELLED],
+      [OrderStatus.ACCEPTED]: [OrderStatus.DRIVER_ARRIVING, OrderStatus.ARRIVED_AT_PICKUP, OrderStatus.CANCELLED],
       [OrderStatus.DRIVER_ARRIVING]: [OrderStatus.ARRIVED_AT_PICKUP, OrderStatus.CANCELLED],
       [OrderStatus.ARRIVED_AT_PICKUP]: [OrderStatus.IN_TRANSIT, OrderStatus.CANCELLED],
       [OrderStatus.IN_TRANSIT]: [OrderStatus.ARRIVED_AT_DESTINATION],
