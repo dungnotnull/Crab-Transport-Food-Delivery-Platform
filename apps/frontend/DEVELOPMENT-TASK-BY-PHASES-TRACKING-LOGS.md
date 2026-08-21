@@ -209,3 +209,31 @@
 - [x] Sửa hủy chuyến và nhận chuyến để không chỉ reset local state hoặc gọi API trùng.
 - [x] Tối ưu UX/accessibility cho form, toast, focus state, mobile controls và reduced-motion.
 - [x] Đã chạy regression test, TypeScript check và production build thành công.
+
+---
+
+## 🚕 Phase 12: Grab-like Address Search & Nearby Fleet Simulation - [COMPLETED]
+
+- [x] **Task 12.1: Điểm đón / Điểm đến động**
+  - Hai combobox độc lập; chỉ lưu tọa độ sau khi chọn option, GPS hoặc click/drag trên map.
+  - Không còn default/fallback nghiệp vụ Halo; GeoJSON lỗi bị reject thay vì dựng marker giả.
+- [x] **Task 12.2: Address autocomplete**
+  - Photon/OSM search-as-you-type, debounce 350ms, abort stale request, cache query và giới hạn bbox Việt Nam.
+  - Hỗ trợ ArrowUp/ArrowDown/Enter/Escape cùng `combobox`/`listbox`/`option` ARIA đầy đủ.
+  - Browser QA thực tế: query “Cho Ben Thanh” trả 6 gợi ý; chọn pickup/dropoff thành công bằng bàn phím.
+- [x] **Task 12.3: Mô phỏng nhiều tài xế quanh pickup**
+  - 6 tài xế BIKE/CAR_4/CAR_7 được sinh tương đối theo pickup, gồm tài xế trong và ngoài bán kính 3 km.
+  - Chỉ tài xế vừa đúng loại xe vừa trong `<= 3 km` được đánh dấu đủ điều kiện; quyền accept thật vẫn thuộc backend.
+  - Marker nội suy 1.1s bằng `requestAnimationFrame`, xoay heading và tắt chuyển động khi `prefers-reduced-motion`.
+- [x] **Task 12.4: Concurrency & Cancellation**
+  - Single-flight guard chặn double-click nhận cuốc; HTTP 409 đóng offer, lỗi khác giữ offer để retry.
+  - Customer cancel dùng allow-list `FINDING_DRIVER`/`ACCEPTED`, có loading và chặn request lặp.
+- [x] **Task 12.5: Mobile-first QA**
+  - Booking panel thành bottom sheet tối đa 68%, chừa bản đồ/fleet; navbar không còn gây horizontal overflow.
+  - Pass 375×812, 768×1024, 1440×900, 812×375 landscape và chữ lớn 20px.
+  - Bằng chứng ảnh/report: `apps/frontend/dogfood-output/report.md`.
+- [x] **Verification**
+  - `npm test`: 27/27 pass, gồm race accept, cancellation, geocoding, fleet eligibility/movement và trip normalization.
+  - `npm run build`: pass TypeScript + Vite production build; còn warning chunk >500 kB.
+  - `npm run lint`: chưa chạy được vì package thiếu script; theo dõi tại `FE-016` / `BUG-022`.
+  - Backend read-only regression: 13/14 suite fail baseline; ghi `BUG-016`–`BUG-018` và `REQ-BE-001`, không sửa `apps/backend/`.

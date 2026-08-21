@@ -1,47 +1,12 @@
 import { apiClient } from './api';
 import { ApiResponse } from '../types/api.types';
 import { BookTripDto, LocationPoint, RoutePreviewData, ServiceType, Trip } from '../types/trip.types';
+import {
+  normalizeLocationPoint,
+  normalizeTrip,
+} from '../utils/tripNormalization.utils';
 
-/**
- * Chuẩn hóa LocationPoint từ GeoJSON ({ type: 'Point', coordinates: [lng, lat] }) hoặc object { lat, lng }
- */
-export function normalizeLocationPoint(point: any, fallbackAddress = 'Địa chỉ'): LocationPoint {
-  if (!point) {
-    return { lat: 10.7828, lng: 106.6958, address: fallbackAddress };
-  }
-  if (typeof point.lat === 'number' && typeof point.lng === 'number' && !isNaN(point.lat) && !isNaN(point.lng)) {
-    return {
-      lat: point.lat,
-      lng: point.lng,
-      address: point.address || fallbackAddress,
-    };
-  }
-  if (point.coordinates && Array.isArray(point.coordinates) && point.coordinates.length >= 2) {
-    const lng = Number(point.coordinates[0]);
-    const lat = Number(point.coordinates[1]);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      return {
-        lat,
-        lng,
-        address: point.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-      };
-    }
-  }
-  return { lat: 10.7828, lng: 106.6958, address: fallbackAddress };
-}
-
-/**
- * Chuẩn hóa toàn bộ Trip entity từ Backend DB
- */
-export function normalizeTrip(data: any): Trip {
-  if (!data) return data;
-  return {
-    ...data,
-    total_fare: Number(data.total_fare ?? data.fare ?? 0),
-    pickup_location: normalizeLocationPoint(data.pickup_location, 'Điểm đón'),
-    dropoff_location: normalizeLocationPoint(data.dropoff_location, 'Điểm đến'),
-  };
-}
+export { normalizeLocationPoint, normalizeTrip };
 
 export const tripService = {
   /**

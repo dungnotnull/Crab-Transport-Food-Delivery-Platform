@@ -16,20 +16,22 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full overflow-x-clip bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
+      <div className="mx-auto flex h-16 min-w-0 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
         {/* Logo & Portal Identity */}
-        <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-2xl bg-[#00B14F] flex items-center justify-center text-white shadow-md shadow-[#00B14F]/30 group-hover:scale-105 transition-transform">
-              <span className="text-xl">
-                {user?.role === 'DRIVER' ? '🚗' : user?.role === 'ADMIN' ? '🛡️' : '🚗'}
-              </span>
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <Link to="/" className="group flex min-w-0 items-center gap-2 sm:gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00B14F] text-white shadow-md shadow-[#00B14F]/30 transition-transform group-hover:scale-105 sm:h-10 sm:w-10 sm:rounded-2xl">
+              {user?.role === 'ADMIN' || user?.role === 'SYSTEM_ADMIN' ? (
+                <Shield className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Car className="h-5 w-5" aria-hidden="true" />
+              )}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-xl font-extrabold text-slate-900 tracking-tight">CrabCar</span>
-                <span className="text-xs font-bold text-[#00B14F] bg-emerald-50 px-1.5 py-0.5 rounded-md uppercase">
+                <span className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">CrabCar</span>
+                <span className="hidden rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-bold uppercase text-[#00B14F] md:inline-flex">
                   {user?.role === 'DRIVER'
                     ? 'Driver App'
                     : user?.role === 'ADMIN'
@@ -37,7 +39,7 @@ export const Navbar: React.FC = () => {
                     : 'Ride Hailing'}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium leading-none">
+              <p className="hidden text-[10px] font-medium leading-none text-slate-400 md:block">
                 {user?.role === 'DRIVER'
                   ? 'Ứng dụng Đối tác Tài xế'
                   : user?.role === 'ADMIN'
@@ -78,10 +80,10 @@ export const Navbar: React.FC = () => {
         )}
 
         {/* Auth Profile / Action */}
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {isAuthenticated && user ? (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 p-1.5 pr-3 rounded-2xl">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-slate-50 p-1.5 sm:pr-3">
                 {user.avatar_url ? (
                   <img
                     src={user.avatar_url}
@@ -95,7 +97,7 @@ export const Navbar: React.FC = () => {
                     <UserRound className="w-4 h-4" aria-hidden="true" />
                   </div>
                 )}
-                <div className="text-left">
+                <div className="hidden text-left sm:block">
                   <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <span className="truncate max-w-[110px]">{user.full_name}</span>
                     <Badge
@@ -121,9 +123,9 @@ export const Navbar: React.FC = () => {
                 aria-label="Đăng xuất khỏi hệ thống"
                 onClick={handleLogout}
                 title="Đăng xuất khỏi hệ thống"
-                className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:h-9 sm:w-9"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           ) : (

@@ -76,7 +76,7 @@ export function createGeocodingService(
       const url = new URL(`${baseUrl}/api`);
       url.searchParams.set('q', query.trim().replace(/\s+/g, ' '));
       url.searchParams.set('limit', '6');
-      url.searchParams.set('lang', 'vi');
+      // Public Photon hiện chỉ bật de/en/fr; bỏ lang để nhận tên địa phương từ OSM.
       url.searchParams.set('bbox', VIETNAM_BBOX);
       if (isValidPoint(bias)) {
         url.searchParams.set('lat', String(bias.lat));
@@ -102,7 +102,6 @@ export function createGeocodingService(
       const url = new URL(`${baseUrl}/reverse`);
       url.searchParams.set('lat', String(point.lat));
       url.searchParams.set('lon', String(point.lng));
-      url.searchParams.set('lang', 'vi');
 
       const response = await fetcher(url, { signal, headers: { Accept: 'application/json' } });
       if (!response.ok) {

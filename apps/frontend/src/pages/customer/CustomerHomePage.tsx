@@ -191,9 +191,9 @@ export const CustomerHomePage: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
+    <div className="relative flex h-[calc(100dvh-4rem)] w-full flex-col overflow-hidden md:flex-row">
       {/* Left Control Panel / Mobile Overlay */}
-      <div className="z-10 w-full md:w-[420px] lg:w-[460px] p-4 md:p-6 flex flex-col justify-start md:overflow-y-auto shrink-0 pointer-events-auto">
+      <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[68%] min-w-0 w-full shrink-0 flex-col justify-start overflow-y-auto overscroll-contain p-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-4 md:relative md:inset-auto md:h-full md:max-h-none md:w-[420px] md:p-6 lg:w-[460px]">
         {!activeTrip || activeTrip.status === 'FINDING_DRIVER' ? (
           <BookingPanel onStartFindingDriver={() => setIsSearchingDriver(true)} />
         ) : (
@@ -209,12 +209,12 @@ export const CustomerHomePage: React.FC = () => {
       <div className="flex-1 w-full h-full absolute md:relative inset-0 z-0">
         {/* Floating Fleet Status Badge */}
         {(!activeTrip || activeTrip.status === 'FINDING_DRIVER') && pickup ? (
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-md shadow-lg border border-emerald-100 rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-700">
+          <div className="absolute left-4 right-4 top-4 z-10 flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white/95 px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-lg backdrop-blur-md md:left-auto md:rounded-full">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00B14F]"></span>
             </span>
-            <span>{eligibleDriverCount} tài xế mô phỏng phù hợp trong 3 km</span>
+            <span className="min-w-0 flex-1">{eligibleDriverCount} tài xế mô phỏng phù hợp trong 3 km</span>
             <button
               type="button"
               onClick={() => setShowFleetSimulation(!showFleetSimulation)}
@@ -223,7 +223,7 @@ export const CustomerHomePage: React.FC = () => {
                 showFleetSimulation ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
               }`}
             >
-              {showFleetSimulation ? 'Đang mô phỏng' : 'Tắt'}
+              {showFleetSimulation ? 'Đang mô phỏng' : 'Bật mô phỏng'}
             </button>
           </div>
         ) : null}

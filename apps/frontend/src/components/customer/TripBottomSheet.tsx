@@ -4,7 +4,7 @@ import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { TripStatus } from '../../types/trip.types';
-import { Phone, MessageSquare, Star, UserRound } from 'lucide-react';
+import { Phone, MessageSquare, Star, UserRound, LockKeyhole } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { canCustomerCancel } from '../../utils/tripRules';
 
@@ -163,15 +163,16 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({
       {/* Action Buttons */}
       <div className="flex flex-col gap-2 pt-1">
         {status === 'COMPLETED' ? (
-          <Button size="lg" onClick={onOpenRating} className="w-full">
-            ⭐ Đánh giá chuyến đi
+          <Button size="lg" onClick={onOpenRating} className="w-full" leftIcon={<Star className="h-5 w-5" aria-hidden="true" />}>
+            Đánh giá chuyến đi
           </Button>
         ) : (
           <div className="flex items-center justify-between gap-3">
             {/* Ghi chú lý do chặn hủy chuyến */}
             {!canCancel ? (
               <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-3 py-2 rounded-xl border border-amber-200 flex-1">
-                🔒 Không thể hủy: {status === 'ARRIVED_AT_PICKUP' ? 'Tài xế đã có mặt tại điểm đón' : 'Chuyến đi đang diễn ra'}
+                <LockKeyhole className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
+                Không thể hủy: {status === 'ARRIVED_AT_PICKUP' ? 'Tài xế đã có mặt tại điểm đón' : 'Chuyến đi đang diễn ra'}
               </span>
             ) : (
               <span className="text-[11px] text-slate-500 font-medium">

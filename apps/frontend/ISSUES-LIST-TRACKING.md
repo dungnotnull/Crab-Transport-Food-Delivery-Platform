@@ -19,6 +19,10 @@ File này được Frontend Agent và lập trình viên quản lý để theo d
 | FE-009 | DriverDashboard thiếu listener `driver:trip_cancelled_offer` và `trip:status_changed` khi khách hủy | `DriverDashboardPage.tsx` | High | Resolved | Đã thêm listener `driver:trip_cancelled_offer` và `trip:status_changed` để tự động đóng popup nhận cuốc và reset trạng thái khi cuốc bị hủy. |
 | FE-010 | Multi-tab session dính chung dữ liệu khi test 1 Khách - Nhiều Tài xế | `authStore.ts`, `api.ts`, `socket.service.ts` | Medium | Resolved | Chuyển lưu trữ Auth sang `sessionStorage` (ưu tiên) giúp mỗi tab trình duyệt duy trì phiên đăng nhập riêng biệt. |
 | FE-012 | Trắng màn hình sau khi tài xế nhận cuốc do API trả về GeoJSON Point không có lat/lng trực tiếp | `trip.service.ts`, `CrabMap.tsx`, `PickupDropoffMarkers.tsx` | Critical | Resolved | Bổ sung hàm `normalizeTrip` & `normalizeLocationPoint` chuyển đổi GeoJSON sang `{ lat, lng }` an toàn, thêm guard `isValidCoord` trong tất cả các map components. |
+| FE-013 | Autocomplete Photon luôn lỗi 400 do public instance không hỗ trợ `lang=vi` | `geocoding.service.ts`, `AddressAutocomplete.tsx` | High | Resolved | Bỏ `lang` để dùng tên địa phương OSM; test URL và browser QA xác nhận trả 6 option. |
+| FE-014 | Màn khách hàng tràn ngang 465px và panel che bản đồ ở viewport 375px | `Navbar.tsx`, `CustomerHomePage.tsx`, `BookingPanel.tsx` | High | Resolved | Responsive navbar, touch target 44px, bottom sheet cuộn/safe-area; xác minh 375/768/812-landscape/1440 không tràn. |
+| FE-015 | Trip normalization dựng tọa độ Halo khi API thiếu endpoint | `trip.service.ts`, `tripNormalization.utils.ts` | High | Resolved | Reject dữ liệu trip/GeoJSON malformed thay vì tạo marker giả; bổ sung 3 test. |
+| FE-016 | Không thể chạy lint vì frontend chưa có script/config ESLint | `package.json` | Low | Open | `npm run lint` trả `Missing script: lint`; cần tác vụ tooling riêng. TypeScript production build vẫn pass. |
 
 
 ---

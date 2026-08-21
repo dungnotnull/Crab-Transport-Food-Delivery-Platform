@@ -1,12 +1,5 @@
 import { LocationPoint } from '../types/trip.types';
 
-// Tọa độ chuẩn của Tòa nhà Halo Building (Quận 1, TP. Hồ Chí Minh)
-export const HALO_BUILDING_LOCATION: LocationPoint = {
-  lat: 10.7828,
-  lng: 106.6958,
-  address: 'Tòa nhà Halo Building, Pasteur, Quận 1, TP. Hồ Chí Minh',
-};
-
 // Các điểm đến phổ biến gợi ý
 export const POPULAR_DESTINATIONS: LocationPoint[] = [
   {

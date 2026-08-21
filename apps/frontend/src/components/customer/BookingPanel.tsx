@@ -7,7 +7,7 @@ import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { formatDistance, formatDuration, POPULAR_DESTINATIONS } from '../../utils/geo.utils';
 import { ServiceType, PaymentMethod, LocationPoint } from '../../types/trip.types';
-import { CreditCard, Banknote, Sparkles, Clock, Compass } from 'lucide-react';
+import { CreditCard, Banknote, Sparkles, Clock, Compass, Bike, Car, UsersRound } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
 import { AddressAutocomplete } from './AddressAutocomplete';
@@ -51,7 +51,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           setPickup({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-            address: '📍 Vị trí GPS hiện tại của tôi',
+            address: 'Vị trí GPS hiện tại của tôi',
           });
           setIsLocatingGPS(false);
         },
@@ -140,7 +140,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           setPickup({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-            address: '📍 Vị trí GPS hiện tại của tôi',
+            address: 'Vị trí GPS hiện tại của tôi',
           });
           setIsLocatingGPS(false);
           showToast('Đã định vị thành công vị trí GPS của bạn!', 'success');
@@ -200,12 +200,12 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
   };
 
   return (
-    <div className="w-full flex flex-col gap-4 bg-white/95 backdrop-blur-md p-5 rounded-3xl border border-slate-100 shadow-xl">
+    <div className="flex w-full min-w-0 flex-col gap-4 rounded-3xl border border-slate-100 bg-white/95 p-4 shadow-xl backdrop-blur-md sm:p-5">
       {/* Header Panel */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span>🛵 Đặt Xe Di Chuyển Crab</span>
+          <h2 className="flex flex-wrap items-center gap-2 text-lg font-black tracking-tight text-slate-900">
+            <span className="flex items-center gap-2"><Bike className="h-5 w-5 text-[#00B14F]" aria-hidden="true" />Đặt Xe Di Chuyển Crab</span>
             <Badge variant="success" size="sm">Trực Tuyến</Badge>
           </h2>
           <p className="text-xs text-slate-500 font-medium">Xe máy CrabBike & Ô tô CrabCar 4-7 chỗ</p>
@@ -298,8 +298,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
                 : 'border-slate-200 bg-white hover:border-slate-300'
             }`}
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-xl mb-1">
-              🛵
+            <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-[#00843D]">
+              <Bike className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="text-xs font-black text-slate-900">CrabBike</div>
             <span className="text-[10px] text-slate-500 font-medium">Xe máy 1 người</span>
@@ -321,8 +321,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
                 : 'border-slate-200 bg-white hover:border-slate-300'
             }`}
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-xl mb-1">
-              🚗
+            <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-[#00843D]">
+              <Car className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="text-xs font-black text-slate-900">CrabCar 4C</div>
             <span className="text-[10px] text-slate-500 font-medium">Sedan 4 chỗ</span>
@@ -344,8 +344,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
                 : 'border-slate-200 bg-white hover:border-slate-300'
             }`}
           >
-            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-xl mb-1">
-              🚙
+            <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+              <UsersRound className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="text-xs font-black text-slate-900">CrabCar 7C</div>
             <span className="text-[10px] text-slate-500 font-medium">SUV/MPV 7 chỗ</span>
@@ -383,13 +383,13 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
       )}
 
       {/* Payment Method & Coupon */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+      <div className="flex flex-col items-stretch justify-between gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setPaymentMethod('CASH')}
             aria-pressed={paymentMethod === 'CASH'}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-[background-color,color,box-shadow] ${
+            className={`flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
               paymentMethod === 'CASH'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -402,7 +402,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
             type="button"
             onClick={() => setPaymentMethod('CREDIT_CARD')}
             aria-pressed={paymentMethod === 'CREDIT_CARD'}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-[background-color,color,box-shadow] ${
+            className={`flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
               paymentMethod === 'CREDIT_CARD'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -413,18 +413,18 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <input
             type="text"
             placeholder="Mã KM (nếu có)"
             value={couponInput}
             onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-            className="w-28 px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg outline-none focus:border-[#00B14F]"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-[#00B14F] sm:w-28 sm:flex-none"
           />
           <button
             type="button"
             onClick={() => setCouponCode(couponInput)}
-            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
           >
             <Sparkles className="w-3.5 h-3.5" />
             Áp dụng

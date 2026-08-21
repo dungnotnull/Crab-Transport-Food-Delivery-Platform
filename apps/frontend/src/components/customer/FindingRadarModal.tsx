@@ -3,7 +3,7 @@ import { useTripStore } from '../../stores/tripStore';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
-import { X, MapPin, Radio } from 'lucide-react';
+import { X, MapPin, Radio, Bike, Car } from 'lucide-react';
 
 interface FindingRadarModalProps {
   onCancel: () => void;
@@ -39,7 +39,11 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
 
           {/* Central Pulsing Icon */}
           <div className="relative z-10 w-20 h-20 rounded-full bg-[#00B14F] text-white flex items-center justify-center shadow-xl shadow-[#00B14F]/40 border-4 border-white">
-            <span className="text-3xl">{serviceType === 'BIKE' ? '🛵' : '🚗'}</span>
+            {serviceType === 'BIKE' ? (
+              <Bike className="h-9 w-9" aria-hidden="true" />
+            ) : (
+              <Car className="h-9 w-9" aria-hidden="true" />
+            )}
           </div>
         </div>
 

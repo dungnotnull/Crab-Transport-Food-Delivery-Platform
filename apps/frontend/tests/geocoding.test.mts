@@ -87,18 +87,24 @@ test('searches Photon with Vietnam bounds and reuses an equivalent cached query'
   const url = new URL(requestedUrls[0]);
   assert.equal(url.pathname, '/api');
   assert.equal(url.searchParams.get('bbox'), '102.14,8.18,109.47,23.39');
+  assert.equal(url.searchParams.get('lang'), null);
   assert.equal(url.searchParams.get('lat'), '10.77');
   assert.equal(url.searchParams.get('lon'), '106.7');
 });
 
 test('returns a normalized point from Photon reverse geocoding', async () => {
-  const fetcher = async () => new Response(
+  let requestedUrl = '';
+  const fetcher = async (input: string | URL | Request) => {
+    requestedUrl = String(input);
+    return new Response(
     JSON.stringify({ features: [benThanhFeature] }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
-  );
+    );
+  };
   const service = createGeocodingService(fetcher, 'https://geocoder.example');
 
   const result = await service.reverse({ lat: 10.776889, lng: 106.700806 });
 
   assert.equal(result?.address, 'Chợ Bến Thành, Lê Lợi, Quận 1, Thành phố Hồ Chí Minh, Việt Nam');
+  assert.equal(new URL(requestedUrl).searchParams.get('lang'), null);
 });
