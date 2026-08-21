@@ -579,19 +579,39 @@ export const DriverDashboardPage: React.FC = () => {
             </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
               {isOnline
-                ? 'Hệ thống PostGIS sẽ tự động chia cuốc gần nhất trong bán kính 3km khi khách hàng đặt xe.'
+                ? 'Hệ thống PostGIS sẽ tự động chia cuốc gần nhất trong bán kính 3km khi khách hàng đặt xe. Bạn có thể click vào bản đồ để đổi vị trí đứng.'
                 : 'Bật trực tuyến để bắt đầu nhận các cuốc xe từ khách hàng.'}
             </p>
           </div>
 
-          <div className="h-64 w-full rounded-2xl overflow-hidden mt-4 relative">
+          <div className="h-72 w-full rounded-2xl overflow-hidden mt-4 relative border border-slate-200 shadow-inner">
             <CrabMap
               pickup={null}
               dropoff={null}
               driverLocation={driverLocation || undefined}
+              onMapClick={async (lat, lng) => {
+                if (activeTrip) return;
+                if (!isOnline) {
+                  showToast('Hãy gạt nút "Bật Trực Tuyến" trước khi chọn vị trí.', 'warning');
+                  return;
+                }
+                setDriverLocation({ lat, lng });
+                try {
+                  await driverService.updateLocation(lat, lng);
+                  socketService.emit('driver:update_location', { lat, lng });
+                  showToast(`📍 Đã đổi vị trí tài xế sang: (${lat.toFixed(4)}, ${lng.toFixed(4)})`, 'success');
+                } catch {
+                  showToast('Chưa thể cập nhật vị trí lên máy chủ.', 'error');
+                }
+              }}
               className="w-full h-full"
             />
           </div>
+          {isOnline && (
+            <p className="text-[11px] text-slate-500 italic mt-2">
+              💡 <strong>Mẹo kiểm thử:</strong> Bạn có thể <u>click chuột trực tiếp lên bản đồ</u> để di chuyển tài xế đến bất kỳ tọa độ nào bạn muốn test.
+            </p>
+          )}
         </Card>
       )}
 
