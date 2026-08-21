@@ -165,6 +165,8 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
   };
 
   // Thực hiện Đặt xe Crab
+
+  // Thực hiện Đặt xe Crab
   const handleBookTrip = async () => {
     if (!pickup || !dropoff || !routePreview) {
       showToast('Vui lòng chọn chính xác điểm đón và điểm đến.', 'warning');
@@ -213,8 +215,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
       </div>
 
       {/* Cặp địa chỉ A/B chỉ lưu tọa độ sau khi chọn gợi ý, GPS hoặc bản đồ. */}
-      <div className="relative flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5">
-        <span className="absolute left-[1.08rem] top-[2.65rem] h-[4.85rem] w-px bg-gradient-to-b from-[#00B14F] via-slate-300 to-[#EF4444]" aria-hidden="true" />
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5">
         <AddressAutocomplete
           id="pickup-address"
           label="Điểm đón"
@@ -225,15 +226,17 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           placeholder="Nhập điểm đón"
         />
 
-        <button
-          type="button"
-          onClick={handleRefreshCurrentGPS}
-          disabled={isLocatingGPS}
-          className="ml-auto flex min-h-11 items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-[#00843D] transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:cursor-wait disabled:opacity-60"
-        >
-          <Compass className={`h-4 w-4 ${isLocatingGPS ? 'animate-spin' : ''}`} aria-hidden="true" />
-          {isLocatingGPS ? 'Đang định vị…' : 'Dùng vị trí hiện tại'}
-        </button>
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={handleRefreshCurrentGPS}
+            disabled={isLocatingGPS}
+            className="flex min-h-8 items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1 text-xs font-bold text-[#00843D] transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:cursor-wait disabled:opacity-60"
+          >
+            <Compass className={`h-3.5 w-3.5 ${isLocatingGPS ? 'animate-spin' : ''}`} aria-hidden="true" />
+            <span>{isLocatingGPS ? 'Đang định vị…' : 'Dùng vị trí hiện tại'}</span>
+          </button>
+        </div>
 
         <AddressAutocomplete
           id="dropoff-address"
@@ -252,7 +255,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
               key={`${dest.lat}-${dest.lng}`}
               type="button"
               onClick={() => handleSelectPopularDropoff(dest)}
-              className={`min-h-11 shrink-0 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors ${
+              className={`min-h-8 shrink-0 whitespace-nowrap rounded-xl border px-2.5 text-xs font-semibold transition-colors ${
                 dropoff?.address === dest.address
                   ? 'border-[#00B14F] bg-emerald-50 text-[#00843D]'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -381,53 +384,52 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           </div>
         </div>
       )}
-
       {/* Payment Method & Coupon */}
-      <div className="flex flex-col items-stretch justify-between gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setPaymentMethod('CASH')}
             aria-pressed={paymentMethod === 'CASH'}
-            className={`flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
+            className={`flex h-10 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
               paymentMethod === 'CASH'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <Banknote className="w-3.5 h-3.5 text-emerald-400" />
-            Tiền mặt
+            <Banknote className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Tiền mặt</span>
           </button>
           <button
             type="button"
             onClick={() => setPaymentMethod('CREDIT_CARD')}
             aria-pressed={paymentMethod === 'CREDIT_CARD'}
-            className={`flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
+            className={`flex h-10 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
               paymentMethod === 'CREDIT_CARD'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <CreditCard className="w-3.5 h-3.5 text-blue-400" />
-            Thẻ
+            <CreditCard className="w-4 h-4 text-blue-400 shrink-0" />
+            <span>Thẻ</span>
           </button>
         </div>
 
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
           <input
             type="text"
             placeholder="Mã KM (nếu có)"
             value={couponInput}
             onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-            className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-[#00B14F] sm:w-28 sm:flex-none"
+            className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-[#00B14F] sm:w-28 sm:flex-none"
           />
           <button
             type="button"
             onClick={() => setCouponCode(couponInput)}
-            className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+            className="flex h-10 shrink-0 whitespace-nowrap items-center gap-1 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-95"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Áp dụng
+            <span>Áp dụng</span>
           </button>
         </div>
       </div>
