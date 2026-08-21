@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { LocationPoint } from '../../types/trip.types';
 import { PickupDropoffMarkers } from './PickupDropoffMarkers';
 import { RoutePolyline } from './RoutePolyline';
 import { MovingVehicleMarker } from './MovingVehicleMarker';
+import type { FleetEligibilityReason } from '../../utils/fleetSimulation.utils';
 
 export interface NearbyDriverInfo {
   id: string;
@@ -14,6 +15,10 @@ export interface NearbyDriverInfo {
   vehicleType?: 'BIKE' | 'CAR_4' | 'CAR_7' | string;
   driverName?: string;
   licensePlate?: string;
+  eligible?: boolean;
+  eligibilityReason?: FleetEligibilityReason;
+  distanceMeters?: number;
+  isSimulated?: boolean;
 }
 
 interface CrabMapProps {
@@ -22,6 +27,7 @@ interface CrabMapProps {
   routeGeometry?: [number, number][];
   driverLocation?: { lat: number; lng: number; heading?: number } | null;
   nearbyDrivers?: NearbyDriverInfo[];
+  showMatchingRadius?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
   onPickupChange?: (lat: number, lng: number) => void;
   onDropoffChange?: (lat: number, lng: number) => void;
@@ -89,6 +95,7 @@ export const CrabMap: React.FC<CrabMapProps> = ({
   routeGeometry,
   driverLocation,
   nearbyDrivers,
+  showMatchingRadius = false,
   onMapClick,
   onPickupChange,
   onDropoffChange,
@@ -98,7 +105,7 @@ export const CrabMap: React.FC<CrabMapProps> = ({
     ? [pickup.lat, pickup.lng]
     : isValidCoord(dropoff)
     ? [dropoff.lat, dropoff.lng]
-    : [10.7828, 106.6958]; // Default Halo Building
+    : [10.776889, 106.700806]; // Tâm TP.HCM chỉ dùng để hiển thị khi chưa chọn điểm.
 
   return (
     <div className={`relative overflow-hidden rounded-3xl ${className}`}>
@@ -119,6 +126,21 @@ export const CrabMap: React.FC<CrabMapProps> = ({
         {/* Handlers & Auto-fit bounds */}
         <MapClickHandler onClick={onMapClick} />
         <MapBoundsController pickup={pickup} dropoff={dropoff} routeGeometry={routeGeometry} />
+
+        {showMatchingRadius && isValidCoord(pickup) ? (
+          <Circle
+            center={[pickup.lat, pickup.lng]}
+            radius={3000}
+            pathOptions={{
+              color: '#00B14F',
+              fillColor: '#00B14F',
+              fillOpacity: 0.035,
+              opacity: 0.42,
+              weight: 1.5,
+              dashArray: '7 8',
+            }}
+          />
+        ) : null}
 
         {/* Markers */}
         <PickupDropoffMarkers
@@ -144,6 +166,10 @@ export const CrabMap: React.FC<CrabMapProps> = ({
             vehicleType={d.vehicleType || 'CAR_4'}
             driverName={d.driverName || 'Tài xế Crab'}
             licensePlate={d.licensePlate || '59A-123.45'}
+            eligible={d.eligible}
+            eligibilityReason={d.eligibilityReason}
+            distanceMeters={d.distanceMeters}
+            isSimulated={d.isSimulated}
           />
         ))}
       </MapContainer>

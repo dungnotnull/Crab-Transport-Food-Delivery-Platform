@@ -10,6 +10,7 @@ import { RatingModal } from '../../components/customer/RatingModal';
 import { useToast } from '../../components/common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
 import { geocodingService } from '../../services/geocoding.service';
+import { useFleetSimulation } from '../../hooks/useFleetSimulation';
 
 export const CustomerHomePage: React.FC = () => {
   const {
@@ -19,6 +20,7 @@ export const CustomerHomePage: React.FC = () => {
     driverLocation,
     activeTrip,
     isSearchingDriver,
+    serviceType,
     setPickup,
     setDropoff,
     setActiveTrip,
@@ -34,36 +36,11 @@ export const CustomerHomePage: React.FC = () => {
     pickup?: AbortController;
     dropoff?: AbortController;
   }>({});
-
-  // Đội xe mô phỏng rải rác quanh trung tâm Sài Gòn / Halo Building
-  const [nearbyFleet, setNearbyFleet] = useState<any[]>([
-    { id: 'sim-bike-1', lat: 10.7838, lng: 106.6968, heading: 45, vehicleType: 'BIKE', driverName: 'Nguyễn Văn Nam (CrabBike)', licensePlate: '59P1-889.12' },
-    { id: 'sim-car4-1', lat: 10.7812, lng: 106.6942, heading: 120, vehicleType: 'CAR_4', driverName: 'Trần Tuấn Anh (CrabCar 4C)', licensePlate: '51H-678.90' },
-    { id: 'sim-car4-2', lat: 10.7850, lng: 106.6980, heading: 210, vehicleType: 'CAR_4', driverName: 'Lê Hoàng Hải (CrabCar 4C)', licensePlate: '51K-123.45' },
-    { id: 'sim-car7-1', lat: 10.7798, lng: 106.6995, heading: 330, vehicleType: 'CAR_7', driverName: 'Phạm Đức Long (CrabCar 7C)', licensePlate: '59A-999.88' },
-    { id: 'sim-bike-2', lat: 10.7865, lng: 106.6935, heading: 90, vehicleType: 'BIKE', driverName: 'Võ Minh Trí (CrabBike)', licensePlate: '59N2-456.78' },
-  ]);
-
-  // Hiệu ứng di chuyển nhẹ nhàng của đội xe khi ở màn hình chờ
-  useEffect(() => {
-    if (!showFleetSimulation || (activeTrip && activeTrip.status !== 'FINDING_DRIVER')) return;
-    const interval = setInterval(() => {
-      setNearbyFleet((prev) =>
-        prev.map((d) => {
-          const deltaLat = (Math.random() - 0.5) * 0.0003;
-          const deltaLng = (Math.random() - 0.5) * 0.0003;
-          const newHeading = Math.floor(Math.atan2(deltaLng, deltaLat) * (180 / Math.PI));
-          return {
-            ...d,
-            lat: d.lat + deltaLat,
-            lng: d.lng + deltaLng,
-            heading: (newHeading + 360) % 360,
-          };
-        })
-      );
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [showFleetSimulation, activeTrip]);
+  const fleetEnabled = Boolean(
+    showFleetSimulation && pickup && (!activeTrip || activeTrip.status === 'FINDING_DRIVER'),
+  );
+  const nearbyFleet = useFleetSimulation(pickup, serviceType, fleetEnabled);
+  const eligibleDriverCount = nearbyFleet.filter((driver) => driver.eligible).length;
 
   // 1. Fetch active trip on mount to restore state
   useEffect(() => {
@@ -229,31 +206,33 @@ export const CustomerHomePage: React.FC = () => {
       {/* Main Map Stage */}
       <div className="flex-1 w-full h-full absolute md:relative inset-0 z-0">
         {/* Floating Fleet Status Badge */}
-        {!activeTrip && (
+        {(!activeTrip || activeTrip.status === 'FINDING_DRIVER') && pickup ? (
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-md shadow-lg border border-emerald-100 rounded-full px-3.5 py-1.5 text-xs font-semibold text-slate-700">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00B14F]"></span>
             </span>
-            <span>5 Tài xế trực tuyến quanh bạn</span>
+            <span>{eligibleDriverCount} tài xế mô phỏng phù hợp trong 3 km</span>
             <button
               type="button"
               onClick={() => setShowFleetSimulation(!showFleetSimulation)}
-              className={`ml-1 text-[10px] px-2 py-0.5 rounded-full transition-colors font-bold ${
+              aria-pressed={showFleetSimulation}
+              className={`ml-1 min-h-9 rounded-full px-2.5 text-[10px] font-bold transition-colors ${
                 showFleetSimulation ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
               }`}
             >
               {showFleetSimulation ? 'Đang mô phỏng' : 'Tắt'}
             </button>
           </div>
-        )}
+        ) : null}
 
         <CrabMap
           pickup={pickup}
           dropoff={dropoff}
           routeGeometry={routePreview?.geometry}
           driverLocation={driverLocation}
-          nearbyDrivers={showFleetSimulation && !activeTrip ? nearbyFleet : undefined}
+          nearbyDrivers={fleetEnabled ? nearbyFleet : undefined}
+          showMatchingRadius={fleetEnabled}
           onMapClick={handleMapClick}
           onPickupChange={(lat, lng) => void resolveMapPoint('pickup', lat, lng)}
           onDropoffChange={(lat, lng) => void resolveMapPoint('dropoff', lat, lng)}
