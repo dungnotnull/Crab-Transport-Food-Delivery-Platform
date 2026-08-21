@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTripStore } from '../../stores/tripStore';
 import { tripService } from '../../services/trip.service';
 import { socketService } from '../../services/socket.service';
@@ -9,6 +9,7 @@ import { TripBottomSheet } from '../../components/customer/TripBottomSheet';
 import { RatingModal } from '../../components/customer/RatingModal';
 import { useToast } from '../../components/common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
+import { geocodingService } from '../../services/geocoding.service';
 
 export const CustomerHomePage: React.FC = () => {
   const {
@@ -29,6 +30,10 @@ export const CustomerHomePage: React.FC = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [showFleetSimulation, setShowFleetSimulation] = useState(true);
   const { showToast } = useToast();
+  const reverseControllersRef = useRef<{
+    pickup?: AbortController;
+    dropoff?: AbortController;
+  }>({});
 
   // Đội xe mô phỏng rải rác quanh trung tâm Sài Gòn / Halo Building
   const [nearbyFleet, setNearbyFleet] = useState<any[]>([
@@ -134,14 +139,41 @@ export const CustomerHomePage: React.FC = () => {
     };
   }, [resetBooking, showToast, setActiveTrip]);
 
+  useEffect(() => () => {
+    reverseControllersRef.current.pickup?.abort();
+    reverseControllersRef.current.dropoff?.abort();
+  }, []);
+
+  const resolveMapPoint = async (
+    kind: 'pickup' | 'dropoff',
+    lat: number,
+    lng: number,
+  ) => {
+    reverseControllersRef.current[kind]?.abort();
+    const controller = new AbortController();
+    reverseControllersRef.current[kind] = controller;
+    const coordinateLabel = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const setPoint = kind === 'pickup' ? setPickup : setDropoff;
+
+    setPoint({ lat, lng, address: coordinateLabel });
+
+    try {
+      const resolved = await geocodingService.reverse(
+        { lat, lng, address: coordinateLabel },
+        controller.signal,
+      );
+      if (!controller.signal.aborted && resolved?.address) {
+        setPoint({ lat, lng, address: resolved.address });
+      }
+    } catch {
+      // Tọa độ người dùng chọn vẫn hợp lệ khi dịch vụ reverse geocoding tạm thời lỗi.
+    }
+  };
+
   // Click trên bản đồ để chọn điểm đến
   const handleMapClick = (lat: number, lng: number) => {
     if (!activeTrip || activeTrip.status === 'CANCELLED' || activeTrip.status === 'COMPLETED') {
-      setDropoff({
-        lat,
-        lng,
-        address: `Vị trí đã chọn (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-      });
+      void resolveMapPoint('dropoff', lat, lng);
       showToast('Đã chọn điểm đến trên bản đồ', 'info');
     }
   };
@@ -223,12 +255,8 @@ export const CustomerHomePage: React.FC = () => {
           driverLocation={driverLocation}
           nearbyDrivers={showFleetSimulation && !activeTrip ? nearbyFleet : undefined}
           onMapClick={handleMapClick}
-          onPickupChange={(lat, lng) =>
-            useTripStore.getState().setPickup({ lat, lng, address: 'Điểm đón tùy chỉnh' })
-          }
-          onDropoffChange={(lat, lng) =>
-            useTripStore.getState().setDropoff({ lat, lng, address: 'Điểm đến tùy chỉnh' })
-          }
+          onPickupChange={(lat, lng) => void resolveMapPoint('pickup', lat, lng)}
+          onDropoffChange={(lat, lng) => void resolveMapPoint('dropoff', lat, lng)}
           className="w-full h-full rounded-none"
         />
       </div>

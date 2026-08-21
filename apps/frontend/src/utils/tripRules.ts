@@ -1,4 +1,4 @@
-import type { TripStatus } from '../types/trip.types';
+import type { LocationPoint, TripStatus } from '../types/trip.types';
 
 const CUSTOMER_CANCELLABLE_STATUSES = new Set<TripStatus>([
   'FINDING_DRIVER',
@@ -7,6 +7,13 @@ const CUSTOMER_CANCELLABLE_STATUSES = new Set<TripStatus>([
 
 export function canCustomerCancel(status: TripStatus): boolean {
   return CUSTOMER_CANCELLABLE_STATUSES.has(status);
+}
+
+export function canPreviewRoute(
+  pickup: LocationPoint | null,
+  dropoff: LocationPoint | null,
+): boolean {
+  return Boolean(pickup && dropoff);
 }
 
 export function isTripAcceptConflict(error: unknown): boolean {

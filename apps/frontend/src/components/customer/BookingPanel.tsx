@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTripStore } from '../../stores/tripStore';
 import { tripService } from '../../services/trip.service';
 import { socketService } from '../../services/socket.service';
@@ -7,9 +7,12 @@ import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { formatDistance, formatDuration, POPULAR_DESTINATIONS } from '../../utils/geo.utils';
 import { ServiceType, PaymentMethod, LocationPoint } from '../../types/trip.types';
-import { MapPin, Navigation, Car, CreditCard, Banknote, Sparkles, Clock, Compass, Users } from 'lucide-react';
+import { CreditCard, Banknote, Sparkles, Clock, Compass } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
+import { AddressAutocomplete } from './AddressAutocomplete';
+import { canPreviewRoute } from '../../utils/tripRules';
+import type { RoutePreviewData } from '../../types/trip.types';
 
 interface BookingPanelProps {
   onStartFindingDriver: () => void;
@@ -37,6 +40,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
   const [couponInput, setCouponInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocatingGPS, setIsLocatingGPS] = useState(false);
+  const routeRequestIdRef = useRef(0);
 
   // Tự động lấy định vị GPS thực tế của thiết bị người dùng khi khởi động
   useEffect(() => {
@@ -61,23 +65,19 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
   }, [setPickup]);
 
   const [faresByType, setFaresByType] = useState<{
-    BIKE?: any;
-    CAR_4?: any;
-    CAR_7?: any;
+    BIKE?: RoutePreviewData | null;
+    CAR_4?: RoutePreviewData | null;
+    CAR_7?: RoutePreviewData | null;
   }>({});
-
-  // Cấu hình giá cước chuẩn từ Backend SystemConfigs
-  const BACKEND_PRICING_CONFIG = {
-    BIKE: { name: 'CrabBike (Xe Máy)', baseFare: 15000, ratePerKm: 5000, desc: 'Xe máy 1 người' },
-    CAR_4: { name: 'CrabCar 4 Chỗ', baseFare: 25000, ratePerKm: 10000, desc: 'Sedan 4 chỗ' },
-    CAR_7: { name: 'CrabCar 7 Chỗ', baseFare: 30000, ratePerKm: 12000, desc: 'SUV/MPV 7 chỗ' },
-  };
 
   // Tính toán OSRM Preview khi có đủ Pickup, Dropoff và loại xe (Lấy đồng thời cả 3 loại xe từ backend)
   useEffect(() => {
-    if (!dropoff) {
+    // Mỗi thay đổi địa chỉ đều vô hiệu hóa request cũ, kể cả khi một đầu mút trở về rỗng.
+    const requestId = ++routeRequestIdRef.current;
+    if (!pickup || !dropoff || !canPreviewRoute(pickup, dropoff)) {
       setRoutePreview(null);
       setFaresByType({});
+      setIsLoadingRoute(false);
       return;
     }
 
@@ -90,7 +90,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
       tripService.previewTrip(pickup, dropoff, 'CAR_7', couponCode).catch(() => null),
     ])
       .then(([bikeData, car4Data, car7Data]) => {
-        if (isMounted) {
+        if (isMounted && requestId === routeRequestIdRef.current) {
           const map = {
             BIKE: bikeData,
             CAR_4: car4Data,
@@ -99,6 +99,9 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
           setFaresByType(map);
           const current = map[serviceType] || car4Data || bikeData;
           setRoutePreview(current);
+          if (!current) {
+            showToast('Không thể tính lộ trình và cước phí. Vui lòng thử lại.', 'error');
+          }
         }
       })
       .catch((err) => {
@@ -111,7 +114,9 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         }
       })
       .finally(() => {
-        if (isMounted) setIsLoadingRoute(false);
+        if (isMounted && requestId === routeRequestIdRef.current) {
+          setIsLoadingRoute(false);
+        }
       });
 
     return () => {
@@ -156,21 +161,13 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
 
   // Lấy giá cước chính xác từ kết quả tính toán của Backend
   const getCalculatedFare = (type: ServiceType) => {
-    if (faresByType[type]?.fare) {
-      return faresByType[type].fare;
-    }
-    if (routePreview?.fare) {
-      if (type === 'BIKE') return Math.round((routePreview.fare * 0.55) / 1000) * 1000;
-      if (type === 'CAR_7') return Math.round((routePreview.fare * 1.35) / 1000) * 1000;
-      return routePreview.fare;
-    }
-    return 0;
+    return faresByType[type]?.fare ?? 0;
   };
 
   // Thực hiện Đặt xe Crab
   const handleBookTrip = async () => {
-    if (!dropoff || !routePreview) {
-      showToast('Vui lòng chọn điểm đến trên bản đồ hoặc danh sách gợi ý!', 'warning');
+    if (!pickup || !dropoff || !routePreview) {
+      showToast('Vui lòng chọn chính xác điểm đón và điểm đến.', 'warning');
       return;
     }
 
@@ -215,88 +212,55 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         </div>
       </div>
 
-      {/* Pickup & Dropoff Inputs */}
-      <div className="flex flex-col gap-2.5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
-        {/* Điểm đón (Pickup) */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#00B14F] inline-block animate-pulse"></span>
-              Điểm đón (Kéo thả trên map)
-            </span>
+      {/* Cặp địa chỉ A/B chỉ lưu tọa độ sau khi chọn gợi ý, GPS hoặc bản đồ. */}
+      <div className="relative flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5">
+        <span className="absolute left-[1.08rem] top-[2.65rem] h-[4.85rem] w-px bg-gradient-to-b from-[#00B14F] via-slate-300 to-[#EF4444]" aria-hidden="true" />
+        <AddressAutocomplete
+          id="pickup-address"
+          label="Điểm đón"
+          tone="pickup"
+          value={pickup}
+          onChange={setPickup}
+          bias={pickup ?? dropoff}
+          placeholder="Nhập điểm đón"
+        />
+
+        <button
+          type="button"
+          onClick={handleRefreshCurrentGPS}
+          disabled={isLocatingGPS}
+          className="ml-auto flex min-h-11 items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-[#00843D] transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 disabled:cursor-wait disabled:opacity-60"
+        >
+          <Compass className={`h-4 w-4 ${isLocatingGPS ? 'animate-spin' : ''}`} aria-hidden="true" />
+          {isLocatingGPS ? 'Đang định vị…' : 'Dùng vị trí hiện tại'}
+        </button>
+
+        <AddressAutocomplete
+          id="dropoff-address"
+          label="Điểm đến"
+          tone="dropoff"
+          value={dropoff}
+          onChange={setDropoff}
+          bias={pickup}
+          placeholder="Bạn muốn đi đâu?"
+        />
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <span className="shrink-0 text-[10px] font-bold uppercase text-slate-400">Gợi ý:</span>
+          {POPULAR_DESTINATIONS.map((dest) => (
             <button
-              onClick={handleRefreshCurrentGPS}
-              disabled={isLocatingGPS}
-              className="text-[11px] font-bold text-[#00B14F] hover:bg-emerald-100 bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+              key={`${dest.lat}-${dest.lng}`}
+              type="button"
+              onClick={() => handleSelectPopularDropoff(dest)}
+              className={`min-h-11 shrink-0 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                dropoff?.address === dest.address
+                  ? 'border-[#00B14F] bg-emerald-50 text-[#00843D]'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
             >
-              <Compass className={`w-3.5 h-3.5 ${isLocatingGPS ? 'animate-spin' : ''}`} />
-              <span>{isLocatingGPS ? 'Đang định vị...' : 'Định vị lại GPS'}</span>
+              {dest.address?.split(',')[0] ?? 'Điểm đến'}
             </button>
-          </div>
-          <div className="text-xs font-semibold text-slate-800 bg-white p-2.5 rounded-xl border border-slate-200 truncate flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-[#00B14F] shrink-0" />
-            <span className="truncate">{pickup.address || `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}`}</span>
-          </div>
-        </div>
-
-        {/* Điểm đến (Dropoff) */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444] inline-block"></span>
-              Điểm đến
-            </span>
-            <span className="text-[11px] text-slate-400">Nhập địa chỉ, GPS hoặc click bản đồ</span>
-          </div>
-
-          <div className="flex gap-1.5">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Nhập địa chỉ hoặc tọa độ điểm đến..."
-                value={dropoff?.address || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  // Kiểm tra nếu người dùng nhập định dạng tọa độ "lat, lng"
-                  const coordMatch = val.match(/^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$/);
-                  if (coordMatch) {
-                    setDropoff({
-                      lat: parseFloat(coordMatch[1]),
-                      lng: parseFloat(coordMatch[3]),
-                      address: val,
-                    });
-                  } else {
-                    setDropoff({
-                      lat: dropoff?.lat || 10.7725,
-                      lng: dropoff?.lng || 106.698,
-                      address: val,
-                    });
-                  }
-                }}
-                className="w-full text-xs font-semibold text-slate-800 bg-white p-2.5 pl-8 rounded-xl border border-slate-200 focus:border-[#00B14F] focus:ring-1 focus:ring-[#00B14F] outline-none truncate"
-              />
-              <Navigation className="w-4 h-4 text-[#EF4444] absolute left-2.5 top-3 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Quick Destination Pills */}
-          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0">Gợi ý:</span>
-            {POPULAR_DESTINATIONS.map((dest, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSelectPopularDropoff(dest)}
-                className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border whitespace-nowrap transition-colors shrink-0 ${
-                  dropoff?.address === dest.address
-                    ? 'bg-emerald-50 border-[#00B14F] text-[#00B14F] font-bold'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {dest.address ? dest.address.split(',')[0] : 'Điểm đến'}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
 
@@ -394,53 +358,24 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         </div>
       </div>
 
-      {/* Transparent Fare Breakdown Card (Chi tiết giá cước khi thanh toán theo Backend SystemConfigs) */}
+      {/* Chỉ hiển thị các cấu phần giá thực sự được Backend trả về. */}
       {routePreview && (
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs flex flex-col gap-2.5 animate-in fade-in duration-200 shadow-2xs">
-          <div className="flex items-center justify-between font-bold text-slate-700 pb-2 border-b border-slate-200">
-            <span className="flex items-center gap-1.5 text-[13px]">
-              <span>🧾 Chi tiết cước phí:</span>
-              <strong className="text-slate-900">
-                {BACKEND_PRICING_CONFIG[serviceType].name}
-              </strong>
-            </span>
-            <span className="text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold">
-              {formatDistance(routePreview.distance)} • {formatDuration(routePreview.duration)}
+        <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs shadow-2xs">
+          <div className="flex items-center justify-between text-slate-600">
+            <span className="font-semibold">Giá trước khuyến mãi</span>
+            <span className="font-bold text-slate-800">
+              {formatCurrency(routePreview.breakdown?.originalFare ?? routePreview.fare)}
             </span>
           </div>
-
-          {/* Chi tiết từng cấu phần giá theo SystemConfigs backend */}
-          <div className="space-y-1.5 text-slate-600">
-            <div className="flex justify-between">
-              <span>• Giá mở cửa (Cước khởi điểm):</span>
-              <span className="font-semibold text-slate-800">
-                {formatCurrency(BACKEND_PRICING_CONFIG[serviceType].baseFare)}
-              </span>
+          {routePreview.breakdown?.discount ? (
+            <div className="flex items-center justify-between font-bold text-emerald-700">
+              <span>Khuyến mãi</span>
+              <span>-{formatCurrency(routePreview.breakdown.discount)}</span>
             </div>
-
-            <div className="flex justify-between">
-              <span>• Đơn giá theo cự ly ({BACKEND_PRICING_CONFIG[serviceType].ratePerKm.toLocaleString('vi-VN')} ₫/km):</span>
-              <span className="font-semibold text-slate-800">
-                {formatCurrency(
-                  Math.round(((routePreview.distance / 1000) * BACKEND_PRICING_CONFIG[serviceType].ratePerKm) / 1000) * 1000
-                )}
-              </span>
-            </div>
-
-            {routePreview.breakdown?.discount ? (
-              <div className="flex justify-between text-emerald-600 font-bold">
-                <span>• Khuyến mãi (Mã Coupon):</span>
-                <span>-{formatCurrency(routePreview.breakdown.discount)}</span>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 font-extrabold text-sm">
-            <div className="flex flex-col">
-              <span className="text-slate-900">Tổng cước thanh toán:</span>
-              <span className="text-[10px] text-slate-400 font-normal">Đã bao gồm VAT & phí nền tảng 20%</span>
-            </div>
-            <span className="text-xl text-[#00B14F] font-black tracking-tight">
+          ) : null}
+          <div className="flex items-center justify-between border-t border-slate-200 pt-2.5">
+            <span className="font-extrabold text-slate-900">Cước dự kiến từ Backend</span>
+            <span className="text-xl font-black tracking-tight text-[#00B14F]">
               {formatCurrency(getCalculatedFare(serviceType))}
             </span>
           </div>
@@ -502,12 +437,12 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         size="lg"
         onClick={handleBookTrip}
         isLoading={isSubmitting || isLoadingRoute}
-        disabled={!dropoff || !routePreview || isLoadingRoute}
+        disabled={!pickup || !dropoff || !routePreview || isLoadingRoute}
         className="w-full text-base font-extrabold shadow-xl"
       >
         {isLoadingRoute
           ? 'Đang tính cước...'
-          : dropoff && routePreview
+          : pickup && dropoff && routePreview
           ? `Thanh toán ${
               serviceType === 'BIKE'
                 ? 'CrabBike (Xe Máy)'
@@ -515,9 +450,9 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
                 ? 'CrabCar 7 Chỗ'
                 : 'CrabCar 4 Chỗ'
             } • ${formatCurrency(getCalculatedFare(serviceType))}`
-          : dropoff
+          : pickup && dropoff
           ? 'Chưa có giá cước'
-          : 'Vui lòng chọn Điểm Đến'}
+          : 'Chọn Điểm Đón và Điểm Đến'}
       </Button>
     </div>
   );

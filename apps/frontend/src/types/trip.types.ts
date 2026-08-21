@@ -34,9 +34,7 @@ export interface RoutePreviewData {
   fare: number; // in VND
   geometry: [number, number][]; // array of [lat, lng]
   breakdown?: {
-    baseFare: number;
-    distanceFare: number;
-    surgeMultiplier: number;
+    originalFare: number;
     discount: number;
   };
 }

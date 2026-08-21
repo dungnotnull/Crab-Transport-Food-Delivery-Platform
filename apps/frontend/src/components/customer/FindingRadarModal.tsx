@@ -63,7 +63,7 @@ export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
         <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3.5 my-4 text-left flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-800 truncate">
             <MapPin className="w-3.5 h-3.5 text-[#00B14F] shrink-0" />
-            <span className="truncate">Điểm đón: {pickup.address || 'Địa chỉ đang cập nhật'}</span>
+            <span className="truncate">Điểm đón: {pickup?.address || 'Chưa xác định điểm đón'}</span>
           </div>
           {dropoff && (
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 truncate">

@@ -1,10 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  canPreviewRoute,
   canCustomerCancel,
   getTripAcceptErrorMessage,
   isTripAcceptConflict,
 } from '../src/utils/tripRules.ts';
+
+test('previews a route only when pickup and destination are both resolved', () => {
+  const pickup = { lat: 10.776, lng: 106.7, address: 'Điểm đón' };
+  const dropoff = { lat: 10.79, lng: 106.71, address: 'Điểm đến' };
+
+  assert.equal(canPreviewRoute(pickup, dropoff), true);
+  assert.equal(canPreviewRoute(null, dropoff), false);
+  assert.equal(canPreviewRoute(pickup, null), false);
+});
 
 test('allows customer cancellation only before the driver arrives', () => {
   assert.equal(canCustomerCancel('FINDING_DRIVER'), true);

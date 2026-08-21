@@ -90,10 +90,8 @@ export const tripService = {
       fare,
       geometry,
       breakdown: {
-        baseFare: Number(data.original_fare ?? fare),
-        distanceFare: fare,
-        surgeMultiplier: 1.0,
-        discount: data.discount_amount || 0,
+        originalFare: Number(data.original_fare ?? fare),
+        discount: Number(data.discount_amount ?? 0),
       },
     };
   },
