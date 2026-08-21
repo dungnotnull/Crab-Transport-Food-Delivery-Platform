@@ -19,6 +19,15 @@ export interface LocationPoint {
   address?: string;
 }
 
+export interface AddressSuggestion {
+  id: string;
+  primaryText: string;
+  secondaryText: string;
+  point: LocationPoint;
+  osmType?: string;
+  osmId?: string | number;
+}
+
 export interface RoutePreviewData {
   distance: number; // in meters or km
   duration: number; // in seconds or minutes
