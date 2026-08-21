@@ -1,13 +1,14 @@
 import { LocationPoint, TripStatus } from './trip.types';
 
 export interface DriverLocationUpdatePayload {
-  tripId?: string;
+  tripId: string;
   lat: number;
   lng: number;
   heading?: number;
 }
 
 export interface TripLocationStreamPayload {
+  tripId?: string;
   driverId: string;
   lat: number;
   lng: number;

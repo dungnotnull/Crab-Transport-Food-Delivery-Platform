@@ -3,11 +3,13 @@ import { useAuthStore } from '../../stores/authStore';
 import { useDriverStore } from '../../stores/driverStore';
 import { driverService } from '../../services/driver.service';
 import { tripService } from '../../services/trip.service';
+import { routingService } from '../../services/routing.service';
 import { socketService } from '../../services/socket.service';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { TripOfferModal } from '../../components/driver/TripOfferModal';
+import { DriverTripSimulator } from '../../components/driver/DriverTripSimulator';
 import { CrabMap } from '../../components/map/CrabMap';
 import { formatCurrency } from '../../utils/currency.utils';
 import { useToast } from '../../components/common/Toast';
@@ -16,8 +18,28 @@ import {
   getTripAcceptErrorMessage,
   isTripAcceptConflict,
 } from '../../utils/tripRules';
-import { Trip } from '../../types/trip.types';
+import type { Trip, TripStatus } from '../../types/trip.types';
+import type {
+  DriverLocationUpdatePayload,
+  DriverTripOfferPayload,
+  TripLocationStreamPayload,
+  TripStatusChangedPayload,
+} from '../../types/socket.types';
+import {
+  createDriverLocationUpdatePayload,
+  isEventForActiveTrip,
+  shouldSyncLiveDriverLocation,
+  type DriverSimulationStatus,
+} from '../../utils/driverTripSimulation.utils';
 import { Power, Wallet, Star, Car, MapPin, Navigation, Compass, User } from 'lucide-react';
+
+const TRIP_STEP_BY_STATUS: Partial<Record<TripStatus, number>> = {
+  ACCEPTED: 1,
+  ARRIVED_AT_PICKUP: 2,
+  IN_TRANSIT: 3,
+  ARRIVED_AT_DESTINATION: 4,
+  COMPLETED: 0,
+};
 
 export const DriverDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -28,6 +50,9 @@ export const DriverDashboardPage: React.FC = () => {
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   const [isUpdatingTrip, setIsUpdatingTrip] = useState(false);
+  const [isSimulatingTrip, setIsSimulatingTrip] = useState(false);
+  const [activeRouteGeometry, setActiveRouteGeometry] = useState<[number, number][]>([]);
+  const [isLoadingActiveRoute, setIsLoadingActiveRoute] = useState(false);
   const { showToast } = useToast();
 
   const driverProfile = user?.driverProfile;
@@ -66,13 +91,66 @@ export const DriverDashboardPage: React.FC = () => {
     });
   }, [setActiveTripId, showToast]);
 
+  useEffect(() => {
+    if (!activeTrip) {
+      setActiveRouteGeometry([]);
+      setIsLoadingActiveRoute(false);
+      return;
+    }
+
+    let isCurrentRequest = true;
+    const controller = new AbortController();
+    setIsLoadingActiveRoute(true);
+    routingService
+      .getRouteGeometry(
+        activeTrip.pickup_location,
+        activeTrip.dropoff_location,
+        controller.signal,
+      )
+      .then((geometry) => {
+        if (isCurrentRequest) setActiveRouteGeometry(geometry);
+      })
+      .catch(() => {
+        if (isCurrentRequest) {
+          setActiveRouteGeometry([]);
+          showToast('Không tải được tuyến OSRM; mô phỏng sẽ dùng tuyến thẳng dự phòng.', 'warning');
+        }
+      })
+      .finally(() => {
+        if (isCurrentRequest) setIsLoadingActiveRoute(false);
+      });
+
+    return () => {
+      isCurrentRequest = false;
+      controller.abort();
+    };
+  }, [
+    activeTrip?.dropoff_location.lat,
+    activeTrip?.dropoff_location.lng,
+    activeTrip?.id,
+    activeTrip?.pickup_location.lat,
+    activeTrip?.pickup_location.lng,
+    activeTrip?.service_type,
+    showToast,
+  ]);
+
   // 2. Geolocation tracking & emit
   useEffect(() => {
-    if (!isOnline) return;
+    // Tạm dừng GPS thật để tránh marker nhảy qua lại giữa hai nguồn tọa độ.
+    if (!shouldSyncLiveDriverLocation(isOnline, isSimulatingTrip)) return;
 
     const syncLocation = (latitude: number, longitude: number) => {
       setDriverLocation({ lat: latitude, lng: longitude });
-      socketService.emit('driver:update_location', { lat: latitude, lng: longitude });
+      // Gateway chỉ phát vị trí sang màn khách khi payload có đúng Trip ID đang hoạt động.
+      if (activeTripId) {
+        socketService.emit(
+          'driver:update_location',
+          createDriverLocationUpdatePayload(activeTripId, {
+            lat: latitude,
+            lng: longitude,
+          }),
+        );
+      }
       driverService.updateLocation(latitude, longitude).catch(() => {});
     };
 
@@ -92,11 +170,11 @@ export const DriverDashboardPage: React.FC = () => {
     } else {
       syncLocation(10.780171, 106.693983);
     }
-  }, [isOnline, showToast]);
+  }, [activeTripId, isOnline, isSimulatingTrip, showToast]);
 
   // 3. Socket listeners
   useEffect(() => {
-    const handleTripOffer = (data: any) => {
+    const handleTripOffer = (data: DriverTripOfferPayload) => {
       setIncomingOffer(data);
     };
 
@@ -110,9 +188,13 @@ export const DriverDashboardPage: React.FC = () => {
     };
 
     // Lắng nghe cập nhật trạng thái cuốc xe (từ Simulator hoặc Khách hủy) (BUG-014, FEAT-002)
-    const handleTripStatusChanged = async (data: any) => {
+    const handleTripStatusChanged = async (data: TripStatusChangedPayload) => {
+      const currentTripId = useDriverStore.getState().activeTripId;
+      if (!isEventForActiveTrip(currentTripId, data.tripId)) return;
+
       if (data.status === 'CANCELLED') {
         showToast('Chuyến đi đã bị hủy!', 'warning');
+        setIsSimulatingTrip(false);
         setActiveTrip(null);
         setActiveTripId(null);
         setTripStep(0);
@@ -131,6 +213,7 @@ export const DriverDashboardPage: React.FC = () => {
         setTripStep(4);
         showToast('🏁 Đã đến điểm trả!', 'info');
       } else if (data.status === 'COMPLETED') {
+        setIsSimulatingTrip(false);
         setActiveTrip(null);
         setActiveTripId(null);
         setTripStep(0);
@@ -144,14 +227,20 @@ export const DriverDashboardPage: React.FC = () => {
       if (data.tripId) {
         try {
           const trip = await tripService.getTripDetails(data.tripId);
-          setActiveTrip(trip);
+          if (isEventForActiveTrip(useDriverStore.getState().activeTripId, data.tripId)) {
+            setActiveTrip(trip);
+          }
         } catch {}
       }
     };
 
     // Lắng nghe stream tọa độ xe di chuyển (từ Simulator hoặc GPS) (FEAT-002)
-    const handleLocationStream = (data: any) => {
-      if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+    const handleLocationStream = (data: TripLocationStreamPayload) => {
+      const currentTripId = useDriverStore.getState().activeTripId;
+      if (!currentTripId) return;
+      if (data.tripId && !isEventForActiveTrip(currentTripId, data.tripId)) return;
+
+      if (typeof data.lat === 'number' && typeof data.lng === 'number') {
         setDriverLocation({ lat: data.lat, lng: data.lng });
       }
     };
@@ -212,34 +301,54 @@ export const DriverDashboardPage: React.FC = () => {
     setIncomingOffer(null);
   };
 
+  const updateActiveTripStatus = async (
+    status: DriverSimulationStatus,
+    keepCompletedTrip = false,
+  ) => {
+    if (!activeTripId) throw new Error('Không có chuyến đi đang hoạt động');
+
+    await driverService.updateTripStatus(activeTripId, status);
+
+    if (status === 'COMPLETED' && !keepCompletedTrip) {
+      setActiveTrip(null);
+      setActiveTripId(null);
+      setTripStep(0);
+      return;
+    }
+
+    setActiveTrip((previous) => previous ? { ...previous, status } : previous);
+    setTripStep(TRIP_STEP_BY_STATUS[status] ?? 0);
+  };
+
+  const handleSimulatedLocation = (payload: DriverLocationUpdatePayload) => {
+    setDriverLocation({
+      lat: payload.lat,
+      lng: payload.lng,
+    });
+    socketService.emit('driver:update_location', payload);
+  };
+
+  const handleSimulationCompleted = () => {
+    setActiveTrip(null);
+    setActiveTripId(null);
+    setTripStep(0);
+  };
+
   const handleAdvanceDriverStep = async () => {
     try {
-      if (isUpdatingTrip) return;
+      if (isUpdatingTrip || isSimulatingTrip) return;
       setIsUpdatingTrip(true);
       if (tripStep === 1) {
-        if (!activeTripId) return;
-        const updatedTrip = await driverService.updateTripStatus(activeTripId, 'ARRIVED_AT_PICKUP');
-        setActiveTrip((previous) => previous ? { ...previous, ...updatedTrip, status: 'ARRIVED_AT_PICKUP' } : previous);
-        setTripStep(2);
+        await updateActiveTripStatus('ARRIVED_AT_PICKUP');
         showToast('📍 Đã đến điểm đón!', 'info');
       } else if (tripStep === 2) {
-        if (!activeTripId) return;
-        const updatedTrip = await driverService.updateTripStatus(activeTripId, 'IN_TRANSIT');
-        setActiveTrip((previous) => previous ? { ...previous, ...updatedTrip, status: 'IN_TRANSIT' } : previous);
-        setTripStep(3);
+        await updateActiveTripStatus('IN_TRANSIT');
         showToast('🚀 Khách đã lên xe, bắt đầu chở đến điểm trả!', 'info');
       } else if (tripStep === 3) {
-        if (!activeTripId) return;
-        const updatedTrip = await driverService.updateTripStatus(activeTripId, 'ARRIVED_AT_DESTINATION');
-        setActiveTrip((previous) => previous ? { ...previous, ...updatedTrip, status: 'ARRIVED_AT_DESTINATION' } : previous);
-        setTripStep(4);
+        await updateActiveTripStatus('ARRIVED_AT_DESTINATION');
         showToast('🏁 Đã đến điểm trả an toàn!', 'info');
       } else if (tripStep === 4) {
-        if (!activeTripId) return;
-        await driverService.updateTripStatus(activeTripId, 'COMPLETED');
-        setActiveTrip(null);
-        setActiveTripId(null);
-        setTripStep(0);
+        await updateActiveTripStatus('COMPLETED');
         showToast('🎉 Hoàn thành chuyến đi! Đã cập nhật trạng thái vào DB.', 'success');
       }
     } catch (err: unknown) {
@@ -392,7 +501,7 @@ export const DriverDashboardPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <Badge variant="warning" size="md">Đang Thực Hiện Chuyến Đi</Badge>
-                <Badge variant="info" size="sm">🤖 Auto Simulator</Badge>
+                <Badge variant="info" size="sm">Có mô phỏng thủ công</Badge>
               </div>
               <h3 className="text-lg font-black text-slate-900 mt-1">{stepLabels[tripStep]}</h3>
             </div>
@@ -418,13 +527,34 @@ export const DriverDashboardPage: React.FC = () => {
               pickup={activeTrip?.pickup_location || null}
               dropoff={activeTrip?.dropoff_location || null}
               driverLocation={driverLocation || undefined}
+              routeGeometry={activeRouteGeometry}
               className="w-full h-full"
             />
           </div>
 
+          {activeTrip ? (
+            <DriverTripSimulator
+              trip={activeTrip}
+              currentLocation={driverLocation}
+              dropoffRoute={activeRouteGeometry}
+              disabled={isUpdatingTrip}
+              isPreparingRoute={isLoadingActiveRoute}
+              onLocation={handleSimulatedLocation}
+              onStatus={(status) => updateActiveTripStatus(status, true)}
+              onRunningChange={setIsSimulatingTrip}
+              onCompleted={handleSimulationCompleted}
+            />
+          ) : null}
+
           {/* Advance Step Action */}
           <div className="flex flex-col gap-1.5">
-            <Button size="lg" isLoading={isUpdatingTrip} onClick={handleAdvanceDriverStep} className="w-full font-black text-base shadow-lg">
+            <Button
+              size="lg"
+              isLoading={isUpdatingTrip}
+              disabled={isUpdatingTrip || isSimulatingTrip}
+              onClick={handleAdvanceDriverStep}
+              className="w-full font-black text-base shadow-lg"
+            >
               {tripStep === 1 && '📍 Đã đến điểm đón'}
               {tripStep === 2 && '🚀 Khách đã lên xe (Bắt đầu đi)'}
               {tripStep === 3 && `🏁 Đã đến điểm trả${activeTrip ? ` (Thu tiền ${formatCurrency(activeTrip.total_fare)})` : ''}`}
@@ -432,7 +562,7 @@ export const DriverDashboardPage: React.FC = () => {
               {tripStep === 0 && 'Chờ trạng thái tiếp theo...'}
             </Button>
             <p className="text-[11px] text-slate-400 text-center">
-              💡 Hệ thống Simulator tự động chuyển chặng và cập nhật vị trí GPS trên bản đồ
+              Dùng nút này để cập nhật từng chặng thủ công khi mô phỏng không chạy.
             </p>
           </div>
         </Card>

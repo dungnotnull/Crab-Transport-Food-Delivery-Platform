@@ -12,6 +12,11 @@ import { getApiErrorMessage } from '../../services/auth.helpers';
 import { geocodingService } from '../../services/geocoding.service';
 import { useFleetSimulation } from '../../hooks/useFleetSimulation';
 import { canCustomerCancel } from '../../utils/tripRules';
+import { isEventForActiveTrip } from '../../utils/driverTripSimulation.utils';
+import type {
+  TripLocationStreamPayload,
+  TripStatusChangedPayload,
+} from '../../types/socket.types';
 
 export const CustomerHomePage: React.FC = () => {
   const {
@@ -79,7 +84,10 @@ export const CustomerHomePage: React.FC = () => {
 
   // 2. Listen to socket events
   useEffect(() => {
-    const handleStatusChanged = async (data: any) => {
+    const handleStatusChanged = async (data: TripStatusChangedPayload) => {
+      const currentTripId = useTripStore.getState().activeTrip?.id ?? null;
+      if (!isEventForActiveTrip(currentTripId, data.tripId)) return;
+
       if (data.status === 'CANCELLED') {
         showToast('Chuyến đi đã bị hủy!', 'warning');
         resetBooking();
@@ -89,11 +97,19 @@ export const CustomerHomePage: React.FC = () => {
       // Fetch latest trip details to populate driver info
       try {
         const updatedTrip = await tripService.getTripDetails(data.tripId);
-        setActiveTrip(updatedTrip);
+        const latestTripId = useTripStore.getState().activeTrip?.id ?? null;
+        if (isEventForActiveTrip(latestTripId, data.tripId)) {
+          setActiveTrip(updatedTrip);
+        }
       } catch {
+        const latestTripId = useTripStore.getState().activeTrip?.id ?? null;
+        if (!isEventForActiveTrip(latestTripId, data.tripId)) return;
         showToast('Đã nhận trạng thái mới nhưng chưa tải được chi tiết chuyến đi.', 'warning');
         useTripStore.getState().setTripStatus(data.status);
       }
+
+      const latestTripId = useTripStore.getState().activeTrip?.id ?? null;
+      if (!isEventForActiveTrip(latestTripId, data.tripId)) return;
 
       if (data.status !== 'FINDING_DRIVER') {
         setIsSearchingDriver(false);
@@ -104,8 +120,17 @@ export const CustomerHomePage: React.FC = () => {
       }
     };
 
-    const handleLocationStream = (data: any) => {
-      useTripStore.getState().setDriverLocation({ lat: data.lat, lng: data.lng, heading: data.heading });
+    const handleLocationStream = (data: TripLocationStreamPayload) => {
+      const currentTripId = useTripStore.getState().activeTrip?.id ?? null;
+      if (!currentTripId) return;
+      if (data.tripId && !isEventForActiveTrip(currentTripId, data.tripId)) return;
+      if (!Number.isFinite(data.lat) || !Number.isFinite(data.lng)) return;
+
+      useTripStore.getState().setDriverLocation({
+        lat: data.lat,
+        lng: data.lng,
+        heading: data.heading,
+      });
     };
 
     socketService.on('trip:status_changed', handleStatusChanged);

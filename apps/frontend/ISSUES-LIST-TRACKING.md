@@ -23,6 +23,7 @@ File này được Frontend Agent và lập trình viên quản lý để theo d
 | FE-014 | Màn khách hàng tràn ngang 465px và panel che bản đồ ở viewport 375px | `Navbar.tsx`, `CustomerHomePage.tsx`, `BookingPanel.tsx` | High | Resolved | Responsive navbar, touch target 44px, bottom sheet cuộn/safe-area; xác minh 375/768/812-landscape/1440 không tràn. |
 | FE-015 | Trip normalization dựng tọa độ Halo khi API thiếu endpoint | `trip.service.ts`, `tripNormalization.utils.ts` | High | Resolved | Reject dữ liệu trip/GeoJSON malformed thay vì tạo marker giả; bổ sung 3 test. |
 | FE-016 | Không thể chạy lint vì frontend chưa có script/config ESLint | `package.json` | Low | Open | `npm run lint` trả `Missing script: lint`; cần tác vụ tooling riêng. TypeScript production build vẫn pass. |
+| FE-017 | Chuyến đã nhận không mô phỏng được: runtime thiếu simulator và GPS tài xế phát socket thiếu Trip ID | `DriverDashboardPage.tsx`, `DriverTripSimulator.tsx`, `driverTripSimulation.utils.ts` | High | Resolved | Bổ sung controller 1x/2x/5x theo state machine và geometry OSRM, payload location có Trip ID, pause GPS thật, stop/progress UI và guard event trip cũ. Browser E2E hoàn tất cuốc và xác minh dừng/hủy; 8 test simulator cùng 2 test routing, tổng 37 test đều pass. |
 
 
 ---

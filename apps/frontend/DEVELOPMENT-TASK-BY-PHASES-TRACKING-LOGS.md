@@ -154,15 +154,10 @@
 
 ---
 
-## 🤖 Phase 7: Driver Simulator Controller (Dev/Test Tool) - [COMPLETED]
-- [x] **Task 7.1: Floating Dev Simulator Panel**
-  - [x] Widget nổi (`DevSimulatorWidget`) hiển thị góc dưới màn hình, hỗ trợ thu gọn/mở rộng.
-  - [x] Hiển thị Trip ID hiện tại, trạng thái chuyến đi và tốc độ mô phỏng (1x, 2x, 5x).
-- [x] **Task 7.2: Simulator API Integration**
-  - [x] Gọi API `POST /api/v1/simulator/simulate-trip` với `tripId` và `speedMultiplier` (1x, 2x, 5x).
-  - [x] Nút Kích hoạt Mô phỏng di chuyển tài xế ảo, tự động chạy theo OSRM Polyline và cập nhật tọa độ trực quan trên bản đồ.
-- [x] **Task 7.3: Dev Telemetry Live Log**
-  - [x] Hiển thị tọa độ real-time, heading và trạng thái chuyến đi giúp dễ dàng test demo.
+## 🤖 Phase 7: Driver Simulator Controller (Dev/Test Tool) - [SUPERSEDED]
+
+- Bản `DevSimulatorWidget` lịch sử đã bị gỡ khỏi app runtime; API backend tương ứng hiện chưa đáng tin cậy (`BUG-016`, `BUG-024`).
+- Controller frontend-only thay thế và bằng chứng kiểm thử được theo dõi chính xác tại **Phase 13**.
 
 ---
 
@@ -237,3 +232,23 @@
   - `npm run build`: pass TypeScript + Vite production build; còn warning chunk >500 kB.
   - `npm run lint`: chưa chạy được vì package thiếu script; theo dõi tại `FE-016` / `BUG-022`.
   - Backend read-only regression: 13/14 suite fail baseline; ghi `BUG-016`–`BUG-018` và `REQ-BE-001`, không sửa `apps/backend/`.
+
+---
+
+## 🛵 Phase 13: Assigned Driver Trip Simulation Recovery - [COMPLETED]
+
+- [x] **Task 13.1: Driver-side simulation controller**
+  - Controller chỉ xuất hiện trong portal DRIVER sau khi đã nhận cuốc; hỗ trợ 1x/2x/5x, tiến độ, dừng và tiếp tục từ trạng thái hiện tại.
+  - Luồng trạng thái đúng backend: `ACCEPTED → ARRIVED_AT_PICKUP → IN_TRANSIT → ARRIVED_AT_DESTINATION → COMPLETED`.
+- [x] **Task 13.2: Real-time location contract**
+  - Mọi `driver:update_location` của chuyến active đều có `tripId`; màn khách nhận `trip:location_stream` và dùng marker chuyển động hiện có.
+  - GPS thật được tạm dừng trong lúc chạy simulator để hai nguồn tọa độ không làm marker nhảy qua lại.
+- [x] **Task 13.3: Route and stale-event resilience**
+  - Chặng pickup → dropoff lấy geometry OSRM và dùng Turf để lấy mẫu dọc tuyến; fallback tuyến thẳng chỉ khi preview lỗi.
+  - Status socket được đối chiếu với active Trip ID ở cả Customer/Driver trước khi thay đổi state; response fetch cũ không được ghi đè chuyến mới.
+- [x] **Task 13.4: Verification**
+  - `npm test`: 37/37 pass, gồm 8 regression test simulator và 2 test routing cho payload Trip ID, state machine, resume, OSRM geometry, speed, stop, GPS guard, stale-event guard và response OSRM lỗi.
+  - `npm run build`: pass TypeScript + Vite production build; còn warning chunk >500 kB.
+  - Browser E2E thật trên customer + driver: nhận cuốc, tải/vẽ tuyến OSRM, chạy 5x, marker khách di chuyển, đến điểm đón/điểm trả và hoàn tất chuyến; chạy lại để xác minh dừng mô phỏng rồi customer hủy thì cả hai portal cùng reset, không có page error.
+  - `npm run lint`: chưa có script, tiếp tục theo dõi tại `FE-016` / `BUG-022`.
+  - Không sửa backend; các lỗi backend phát hiện thêm được ghi tại `BUG-024` và `BUG-025`.
