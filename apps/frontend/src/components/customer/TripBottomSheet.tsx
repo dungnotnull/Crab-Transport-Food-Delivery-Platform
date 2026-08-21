@@ -154,25 +154,35 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex flex-col gap-2 pt-1">
         {status === 'COMPLETED' ? (
           <Button size="lg" onClick={onOpenRating} className="w-full">
             ⭐ Đánh giá chuyến đi
           </Button>
         ) : (
-          <>
+          <div className="flex items-center justify-between gap-3">
+            {/* Ghi chú lý do chặn hủy chuyến */}
+            {(status === 'ARRIVED_AT_PICKUP' || status === 'IN_TRANSIT' || status === 'ARRIVED_AT_DESTINATION') ? (
+              <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-3 py-2 rounded-xl border border-amber-200 flex-1">
+                🔒 Không thể hủy: {status === 'ARRIVED_AT_PICKUP' ? 'Tài xế đã có mặt tại điểm đón' : 'Chuyến đi đang diễn ra'}
+              </span>
+            ) : (
+              <span className="text-[11px] text-slate-500 font-medium">
+                Bạn có thể hủy chuyến trước khi tài xế đến điểm đón.
+              </span>
+            )}
 
-            {/* Cancel Button (Bị cấm khi IN_TRANSIT theo rule) */}
+            {/* Cancel Button */}
             <Button
               variant="danger"
               size="md"
-              disabled={status === 'IN_TRANSIT' || status === 'ARRIVED_AT_DESTINATION'}
+              disabled={status === 'ARRIVED_AT_PICKUP' || status === 'IN_TRANSIT' || status === 'ARRIVED_AT_DESTINATION'}
               onClick={onCancelTrip}
-              className="text-xs"
+              className="text-xs shrink-0"
             >
               Hủy chuyến
             </Button>
-          </>
+          </div>
         )}
       </div>
     </div>

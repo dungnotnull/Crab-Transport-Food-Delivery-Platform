@@ -11,10 +11,20 @@ interface AuthState {
   updateUser: (user: Partial<User>) => void;
 }
 
+// Helper lưu trữ token/user ưu tiên sessionStorage để hỗ trợ mở nhiều tab độc lập
+const getStored = (key: string) => sessionStorage.getItem(key) || localStorage.getItem(key);
+const setStored = (key: string, value: string) => {
+  sessionStorage.setItem(key, value);
+};
+const removeStored = (key: string) => {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+};
+
 export const useAuthStore = create<AuthState>((set) => {
-  // Đọc từ LocalStorage nếu có
-  const savedToken = localStorage.getItem('crab_access_token');
-  const savedUserStr = localStorage.getItem('crab_user');
+  // Đọc từ SessionStorage nếu có
+  const savedToken = getStored('crab_access_token');
+  const savedUserStr = getStored('crab_user');
   let savedUser: User | null = null;
   if (savedUserStr) {
     try {
@@ -35,15 +45,15 @@ export const useAuthStore = create<AuthState>((set) => {
     isAuthenticated: !!savedToken && !!savedUser,
 
     login: (user, token) => {
-      localStorage.setItem('crab_access_token', token);
-      localStorage.setItem('crab_user', JSON.stringify(user));
+      setStored('crab_access_token', token);
+      setStored('crab_user', JSON.stringify(user));
       set({ user, token, isAuthenticated: true });
       socketService.connect();
     },
 
     logout: () => {
-      localStorage.removeItem('crab_access_token');
-      localStorage.removeItem('crab_user');
+      removeStored('crab_access_token');
+      removeStored('crab_user');
       set({ user: null, token: null, isAuthenticated: false });
       socketService.disconnect();
     },
@@ -52,7 +62,7 @@ export const useAuthStore = create<AuthState>((set) => {
       set((state) => {
         if (!state.user) return state;
         const updated = { ...state.user, ...partialUser };
-        localStorage.setItem('crab_user', JSON.stringify(updated));
+        setStored('crab_user', JSON.stringify(updated));
         return { user: updated };
       });
     },

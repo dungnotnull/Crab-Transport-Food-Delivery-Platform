@@ -2,6 +2,47 @@ import { apiClient } from './api';
 import { ApiResponse } from '../types/api.types';
 import { BookTripDto, LocationPoint, RoutePreviewData, ServiceType, Trip } from '../types/trip.types';
 
+/**
+ * Chuẩn hóa LocationPoint từ GeoJSON ({ type: 'Point', coordinates: [lng, lat] }) hoặc object { lat, lng }
+ */
+export function normalizeLocationPoint(point: any, fallbackAddress = 'Địa chỉ'): LocationPoint {
+  if (!point) {
+    return { lat: 10.7828, lng: 106.6958, address: fallbackAddress };
+  }
+  if (typeof point.lat === 'number' && typeof point.lng === 'number' && !isNaN(point.lat) && !isNaN(point.lng)) {
+    return {
+      lat: point.lat,
+      lng: point.lng,
+      address: point.address || fallbackAddress,
+    };
+  }
+  if (point.coordinates && Array.isArray(point.coordinates) && point.coordinates.length >= 2) {
+    const lng = Number(point.coordinates[0]);
+    const lat = Number(point.coordinates[1]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return {
+        lat,
+        lng,
+        address: point.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      };
+    }
+  }
+  return { lat: 10.7828, lng: 106.6958, address: fallbackAddress };
+}
+
+/**
+ * Chuẩn hóa toàn bộ Trip entity từ Backend DB
+ */
+export function normalizeTrip(data: any): Trip {
+  if (!data) return data;
+  return {
+    ...data,
+    total_fare: Number(data.total_fare ?? data.fare ?? 0),
+    pickup_location: normalizeLocationPoint(data.pickup_location, 'Điểm đón'),
+    dropoff_location: normalizeLocationPoint(data.dropoff_location, 'Điểm đến'),
+  };
+}
+
 export const tripService = {
   /**
    * Xem trước lộ trình OSRM và tính cước phí dự kiến từ Backend DB (`POST /api/v1/trips/preview`)
@@ -76,7 +117,7 @@ export const tripService = {
       throw new Error('API chưa trả về đủ dữ liệu chuyến đi');
     }
 
-    return {
+    return normalizeTrip({
       id: data.id,
       customer_id: data.customer_id,
       driver_id: data.driver_id,
@@ -87,7 +128,7 @@ export const tripService = {
       service_type: dto.vehicleType,
       payment_method: data.payment_method || dto.paymentMethod || 'CASH',
       created_at: data.created_at,
-    };
+    });
   },
 
   /**
@@ -108,23 +149,25 @@ export const tripService = {
    * Lấy chi tiết cuốc xe đang active của user hiện tại
    */
   async getActiveTrip(): Promise<Trip | null> {
-    const res = await apiClient.get<ApiResponse<Trip>>('/trips/active');
-    return res.data.data || null;
+    const res = await apiClient.get<ApiResponse<any>>('/trips/active');
+    if (!res.data?.data) return null;
+    return normalizeTrip(res.data.data);
   },
 
   /**
    * Lấy chi tiết 1 cuốc xe
    */
   async getTripDetails(tripId: string): Promise<Trip> {
-    const res = await apiClient.get<ApiResponse<Trip>>(`/trips/${tripId}`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/trips/${tripId}`);
+    return normalizeTrip(res.data.data);
   },
 
   /**
    * Lấy lịch sử cuốc xe của customer
    */
   async getCustomerHistory(): Promise<Trip[]> {
-    const res = await apiClient.get<ApiResponse<Trip[]>>('/trips/customer/history');
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any[]>>('/trips/customer/history');
+    if (!Array.isArray(res.data?.data)) return [];
+    return res.data.data.map((t) => normalizeTrip(t));
   }
 };
