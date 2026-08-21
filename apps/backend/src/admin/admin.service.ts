@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, Role } from '../users/entities/user.entity';
-import { Trip, OrderStatus } from '../trips/entities/trip.entity';
+import { Trip, TripStatus } from '../trips/entities/trip.entity';
 
 @Injectable()
 export class AdminService {
@@ -27,7 +27,7 @@ export class AdminService {
     const { sum } = await this.tripsRepository
       .createQueryBuilder('trip')
       .select('SUM(trip.total_fare)', 'sum')
-      .where('trip.status = :status', { status: OrderStatus.COMPLETED })
+      .where('trip.status = :status', { status: TripStatus.COMPLETED })
       .getRawOne();
 
     return {

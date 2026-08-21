@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OrdersController } from './trips.controller';
-import { OrdersService } from './trips.service';
+import { TripsController } from './trips.controller';
+import { TripsService } from './trips.service';
 import { Trip } from './entities/trip.entity';
 import { Review } from './entities/review.entity';
 import { RoutingModule } from '../routing/routing.module';
@@ -21,8 +21,8 @@ import { WalletsModule } from '../wallets/wallets.module';
     CouponsModule,
     WalletsModule,
   ],
-  controllers: [OrdersController],
-  providers: [OrdersService],
-  exports: [OrdersService],
+  controllers: [TripsController],
+  providers: [TripsService],
+  exports: [TripsService],
 })
-export class OrdersModule {}
+export class TripsModule {}

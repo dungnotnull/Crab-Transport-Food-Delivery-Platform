@@ -11,7 +11,7 @@ export class LocationDto {
   lng: number;
 }
 
-export class BookOrderDto {
+export class BookTripDto {
   @ValidateNested()
   @Type(() => LocationDto)
   pickup: LocationDto;
