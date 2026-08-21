@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DriverTripOfferPayload } from '../../types/socket.types';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/currency.utils';
 import { formatDistance, formatDuration } from '../../utils/geo.utils';
 import { MapPin, Navigation, DollarSign, BellRing } from 'lucide-react';
 import { useToast } from '../common/Toast';
+import { SingleFlightGate } from '../../utils/tripRules';
 
 interface TripOfferModalProps {
   offer: DriverTripOfferPayload | null;
@@ -16,6 +17,8 @@ interface TripOfferModalProps {
 export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept, onDecline }) => {
   const [timeLeft, setTimeLeft] = useState(15);
   const [isAccepting, setIsAccepting] = useState(false);
+  const acceptingRef = useRef(false);
+  const acceptGateRef = useRef(new SingleFlightGate());
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
+        if (acceptingRef.current) return prev;
         if (prev <= 1) {
           clearInterval(timer);
           onDecline();
@@ -42,20 +46,16 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
   const strokeDashoffset = (1 - timeLeft / 15) * 283;
 
   const handleAcceptTrip = async () => {
-    try {
+    await acceptGateRef.current.run(async () => {
+      acceptingRef.current = true;
       setIsAccepting(true);
-      await onAccept(offer.tripId);
-    } catch (err: any) {
-      if (err.response?.status === 409) {
-        // Concurrency / Race condition
-        showToast('Cuốc xe đã được tài xế khác tiếp nhận trước!', 'error');
-        onDecline();
-      } else {
-        showToast('Không thể nhận cuốc. Vui lòng thử lại.', 'error');
+      try {
+        await onAccept(offer.tripId);
+      } finally {
+        acceptingRef.current = false;
+        setIsAccepting(false);
       }
-    } finally {
-      setIsAccepting(false);
-    }
+    });
   };
 
   return (
@@ -137,6 +137,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
             variant="outline"
             size="lg"
             onClick={onDecline}
+            disabled={isAccepting}
             className="text-slate-600 font-bold hover:bg-slate-100"
           >
             Từ chối
@@ -145,6 +146,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept,
             variant="primary"
             size="lg"
             isLoading={isAccepting}
+            disabled={isAccepting}
             onClick={handleAcceptTrip}
             className="font-extrabold shadow-lg shadow-emerald-600/30"
           >

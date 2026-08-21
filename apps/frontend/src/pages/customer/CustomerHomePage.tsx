@@ -11,6 +11,7 @@ import { useToast } from '../../components/common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
 import { geocodingService } from '../../services/geocoding.service';
 import { useFleetSimulation } from '../../hooks/useFleetSimulation';
+import { canCustomerCancel } from '../../utils/tripRules';
 
 export const CustomerHomePage: React.FC = () => {
   const {
@@ -175,7 +176,7 @@ export const CustomerHomePage: React.FC = () => {
   };
 
   const handleCancelTrip = async () => {
-    if (!activeTrip || isCancelling) return;
+    if (!activeTrip || isCancelling || !canCustomerCancel(activeTrip.status)) return;
 
     try {
       setIsCancelling(true);
@@ -199,6 +200,7 @@ export const CustomerHomePage: React.FC = () => {
           <TripBottomSheet
             onCancelTrip={handleCancelTrip}
             onOpenRating={() => setIsRatingOpen(true)}
+            isCancelling={isCancelling}
           />
         )}
       </div>

@@ -12,6 +12,10 @@ import { CrabMap } from '../../components/map/CrabMap';
 import { formatCurrency } from '../../utils/currency.utils';
 import { useToast } from '../../components/common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
+import {
+  getTripAcceptErrorMessage,
+  isTripAcceptConflict,
+} from '../../utils/tripRules';
 import { Trip } from '../../types/trip.types';
 import { Power, Wallet, Star, Car, MapPin, Navigation, Compass, User } from 'lucide-react';
 
@@ -197,8 +201,10 @@ export const DriverDashboardPage: React.FC = () => {
       socketService.joinRoom(`trip_${tripId}`);
       showToast('Đã nhận chuyến thành công!', 'success');
     } catch (err: unknown) {
-      setIncomingOffer(null);
-      showToast(getApiErrorMessage(err, 'Cuốc xe đã bị nhận bởi tài xế khác'), 'error');
+      if (isTripAcceptConflict(err)) {
+        setIncomingOffer(null);
+      }
+      showToast(getTripAcceptErrorMessage(err), 'error');
     }
   };
 

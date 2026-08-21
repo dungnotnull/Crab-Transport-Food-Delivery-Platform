@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  SingleFlightGate,
   canPreviewRoute,
   canCustomerCancel,
   getTripAcceptErrorMessage,
@@ -42,4 +43,40 @@ test('keeps a non-conflict offer available for retry', () => {
 
   assert.equal(isTripAcceptConflict(serverError), false);
   assert.match(getTripAcceptErrorMessage(serverError), /thử lại/i);
+});
+
+test('allows only one accept request while drivers compete for a trip', async () => {
+  const gate = new SingleFlightGate();
+  let calls = 0;
+  let finishRequest: (() => void) | undefined;
+  const pendingRequest = new Promise<void>((resolve) => {
+    finishRequest = resolve;
+  });
+
+  const first = gate.run(async () => {
+    calls += 1;
+    await pendingRequest;
+    return 'accepted';
+  });
+  const duplicate = gate.run(async () => {
+    calls += 1;
+    return 'duplicate';
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(await duplicate, undefined);
+  finishRequest?.();
+  assert.equal(await first, 'accepted');
+});
+
+test('releases the accept lock after a failed request so it can be retried', async () => {
+  const gate = new SingleFlightGate();
+
+  await assert.rejects(
+    gate.run(async () => {
+      throw new Error('temporary failure');
+    }),
+  );
+
+  assert.equal(await gate.run(async () => 'retried'), 'retried');
 });

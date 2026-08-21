@@ -5,6 +5,22 @@ const CUSTOMER_CANCELLABLE_STATUSES = new Set<TripStatus>([
   'ACCEPTED',
 ]);
 
+/** Khóa một request đang chạy để thao tác nhận cuốc không bị gửi lặp. */
+export class SingleFlightGate {
+  private isLocked = false;
+
+  async run<TResult>(task: () => Promise<TResult>): Promise<TResult | undefined> {
+    if (this.isLocked) return undefined;
+
+    this.isLocked = true;
+    try {
+      return await task();
+    } finally {
+      this.isLocked = false;
+    }
+  }
+}
+
 export function canCustomerCancel(status: TripStatus): boolean {
   return CUSTOMER_CANCELLABLE_STATUSES.has(status);
 }

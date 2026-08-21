@@ -6,19 +6,26 @@ import { formatCurrency } from '../../utils/currency.utils';
 import { TripStatus } from '../../types/trip.types';
 import { Phone, MessageSquare, Star, UserRound } from 'lucide-react';
 import { useToast } from '../common/Toast';
+import { canCustomerCancel } from '../../utils/tripRules';
 
 interface TripBottomSheetProps {
   onCancelTrip: () => void;
   onOpenRating: () => void;
+  isCancelling?: boolean;
 }
 
-export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, onOpenRating }) => {
+export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({
+  onCancelTrip,
+  onOpenRating,
+  isCancelling = false,
+}) => {
   const { activeTrip } = useTripStore();
   const { showToast } = useToast();
 
   if (!activeTrip || activeTrip.status === 'FINDING_DRIVER') return null;
 
   const status = activeTrip.status;
+  const canCancel = canCustomerCancel(status);
 
   // Lấy text và trạng thái Stepper
   const getStatusInfo = (st: TripStatus) => {
@@ -162,7 +169,7 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
         ) : (
           <div className="flex items-center justify-between gap-3">
             {/* Ghi chú lý do chặn hủy chuyến */}
-            {(status === 'ARRIVED_AT_PICKUP' || status === 'IN_TRANSIT' || status === 'ARRIVED_AT_DESTINATION') ? (
+            {!canCancel ? (
               <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-3 py-2 rounded-xl border border-amber-200 flex-1">
                 🔒 Không thể hủy: {status === 'ARRIVED_AT_PICKUP' ? 'Tài xế đã có mặt tại điểm đón' : 'Chuyến đi đang diễn ra'}
               </span>
@@ -176,7 +183,8 @@ export const TripBottomSheet: React.FC<TripBottomSheetProps> = ({ onCancelTrip, 
             <Button
               variant="danger"
               size="md"
-              disabled={status === 'ARRIVED_AT_PICKUP' || status === 'IN_TRANSIT' || status === 'ARRIVED_AT_DESTINATION'}
+              disabled={!canCancel || isCancelling}
+              isLoading={isCancelling}
               onClick={onCancelTrip}
               className="text-xs shrink-0"
             >
