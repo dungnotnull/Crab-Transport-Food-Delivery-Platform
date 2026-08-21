@@ -6,16 +6,30 @@ import { PickupDropoffMarkers } from './PickupDropoffMarkers';
 import { RoutePolyline } from './RoutePolyline';
 import { MovingVehicleMarker } from './MovingVehicleMarker';
 
+export interface NearbyDriverInfo {
+  id: string;
+  lat: number;
+  lng: number;
+  heading?: number;
+  vehicleType?: 'BIKE' | 'CAR_4' | 'CAR_7' | string;
+  driverName?: string;
+  licensePlate?: string;
+}
+
 interface CrabMapProps {
   pickup?: LocationPoint | null;
   dropoff?: LocationPoint | null;
   routeGeometry?: [number, number][];
   driverLocation?: { lat: number; lng: number; heading?: number } | null;
+  nearbyDrivers?: NearbyDriverInfo[];
   onMapClick?: (lat: number, lng: number) => void;
   onPickupChange?: (lat: number, lng: number) => void;
   onDropoffChange?: (lat: number, lng: number) => void;
   className?: string;
 }
+
+const isValidCoord = (p?: LocationPoint | null): p is LocationPoint =>
+  Boolean(p && typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng));
 
 // Controller tự động căn chỉnh khung hình theo lộ trình
 const MapBoundsController: React.FC<{
@@ -29,10 +43,15 @@ const MapBoundsController: React.FC<{
     let bounds: L.LatLngBounds | null = null;
 
     if (routeGeometry && routeGeometry.length > 0) {
-      bounds = L.latLngBounds(routeGeometry);
+      const validGeometry = routeGeometry.filter(
+        (pt) => Array.isArray(pt) && pt.length >= 2 && !isNaN(pt[0]) && !isNaN(pt[1])
+      );
+      if (validGeometry.length > 0) {
+        bounds = L.latLngBounds(validGeometry);
+      }
     } else {
-      if (pickup) bounds = L.latLngBounds([[pickup.lat, pickup.lng]]);
-      if (dropoff) {
+      if (isValidCoord(pickup)) bounds = L.latLngBounds([[pickup.lat, pickup.lng]]);
+      if (isValidCoord(dropoff)) {
         if (bounds) bounds.extend([dropoff.lat, dropoff.lng]);
         else bounds = L.latLngBounds([[dropoff.lat, dropoff.lng]]);
       }
@@ -44,7 +63,7 @@ const MapBoundsController: React.FC<{
         maxZoom: 16,
         animate: true,
       });
-    } else if (pickup) {
+    } else if (isValidCoord(pickup)) {
       map.setView([pickup.lat, pickup.lng], 15, { animate: true });
     }
   }, [pickup, dropoff, routeGeometry, map]);
@@ -56,7 +75,9 @@ const MapBoundsController: React.FC<{
 const MapClickHandler: React.FC<{ onClick?: (lat: number, lng: number) => void }> = ({ onClick }) => {
   useMapEvents({
     click: (e) => {
-      onClick?.(e.latlng.lat, e.latlng.lng);
+      if (e.latlng && !isNaN(e.latlng.lat) && !isNaN(e.latlng.lng)) {
+        onClick?.(e.latlng.lat, e.latlng.lng);
+      }
     },
   });
   return null;
@@ -67,15 +88,22 @@ export const CrabMap: React.FC<CrabMapProps> = ({
   dropoff,
   routeGeometry,
   driverLocation,
+  nearbyDrivers,
   onMapClick,
   onPickupChange,
   onDropoffChange,
   className = 'w-full h-full',
 }) => {
+  const centerCoord: [number, number] = isValidCoord(pickup)
+    ? [pickup.lat, pickup.lng]
+    : isValidCoord(dropoff)
+    ? [dropoff.lat, dropoff.lng]
+    : [10.7828, 106.6958]; // Default Halo Building
+
   return (
     <div className={`relative overflow-hidden rounded-3xl ${className}`}>
       <MapContainer
-        center={pickup ? [pickup.lat, pickup.lng] : [10.762622, 106.660172]} // Default to HCM city if no pickup
+        center={centerCoord}
         zoom={15}
         scrollWheelZoom={true}
         className="w-full h-full z-0"
@@ -94,8 +122,8 @@ export const CrabMap: React.FC<CrabMapProps> = ({
 
         {/* Markers */}
         <PickupDropoffMarkers
-          pickup={pickup || undefined}
-          dropoff={dropoff || undefined}
+          pickup={isValidCoord(pickup) ? pickup : undefined}
+          dropoff={isValidCoord(dropoff) ? dropoff : undefined}
           onPickupChange={onPickupChange}
           onDropoffChange={onDropoffChange}
         />
@@ -103,8 +131,21 @@ export const CrabMap: React.FC<CrabMapProps> = ({
         {/* OSRM Route Polyline */}
         {routeGeometry && <RoutePolyline coordinates={routeGeometry} />}
 
-        {/* Live Moving Driver Marker */}
-        {driverLocation && <MovingVehicleMarker position={driverLocation} />}
+        {/* Live Assigned Moving Driver Marker */}
+        {driverLocation && typeof driverLocation.lat === 'number' && typeof driverLocation.lng === 'number' && !isNaN(driverLocation.lat) && !isNaN(driverLocation.lng) && (
+          <MovingVehicleMarker position={driverLocation} />
+        )}
+
+        {/* Live Nearby Roaming Drivers Fleet */}
+        {nearbyDrivers && nearbyDrivers.map((d) => (
+          <MovingVehicleMarker
+            key={d.id}
+            position={{ lat: d.lat, lng: d.lng, heading: d.heading }}
+            vehicleType={d.vehicleType || 'CAR_4'}
+            driverName={d.driverName || 'Tài xế Crab'}
+            licensePlate={d.licensePlate || '59A-123.45'}
+          />
+        ))}
       </MapContainer>
     </div>
   );

@@ -12,6 +12,8 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
   app.enableCors();
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
+  await app.listen(port);
 }
 bootstrap();
+

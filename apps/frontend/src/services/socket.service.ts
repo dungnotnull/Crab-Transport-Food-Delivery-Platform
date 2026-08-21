@@ -7,7 +7,7 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    const token = localStorage.getItem('crab_access_token');
+    const token = sessionStorage.getItem('crab_access_token') || localStorage.getItem('crab_access_token');
     
     // Gateway backend port is 4000
     this.socket = io('http://localhost:4000', {
