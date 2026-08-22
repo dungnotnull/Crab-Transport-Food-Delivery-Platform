@@ -22,15 +22,15 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center justify-center font-semibold rounded-xl transition-[transform,background-color,border-color,box-shadow,opacity] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 select-none';
+    'inline-flex min-h-11 items-center justify-center font-semibold rounded-xl transition-[transform,background-color,border-color,box-shadow,opacity] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 select-none';
 
   const variants = {
     primary:
-      'bg-[#00B14F] hover:bg-[#00843D] text-white shadow-md shadow-[#00B14F]/25 focus:ring-[#00B14F]',
+      'bg-[#00843D] hover:bg-[#006B31] text-white shadow-md shadow-[#00843D]/25 focus:ring-[#00843D]',
     secondary:
       'bg-slate-100 hover:bg-slate-200 text-slate-800 focus:ring-slate-400',
     danger:
-      'bg-[#EF4444] hover:bg-red-600 text-white shadow-md shadow-red-500/25 focus:ring-red-500',
+      'bg-red-700 hover:bg-red-800 text-white shadow-md shadow-red-700/25 focus:ring-red-600',
     outline:
       'border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 focus:ring-slate-300',
     ghost:
@@ -53,6 +53,7 @@ export const Button: React.FC<ButtonProps> = ({
       {isLoading ? (
         <svg
           className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+          aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"

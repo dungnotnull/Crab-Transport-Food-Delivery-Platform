@@ -1,6 +1,9 @@
 import { create } from 'zustand';
-import { User, UserRole } from '../types/user.types';
+import type { User } from '../types/user.types';
 import { socketService } from '../services/socket.service';
+import { useTripStore } from './tripStore';
+import { useDriverStore } from './driverStore';
+import { clearSessionBoundState, startAuthenticatedSession } from '../utils/sessionIsolation.utils';
 
 interface AuthState {
   user: User | null;
@@ -45,17 +48,28 @@ export const useAuthStore = create<AuthState>((set) => {
     isAuthenticated: !!savedToken && !!savedUser,
 
     login: (user, token) => {
-      setStored('crab_access_token', token);
-      setStored('crab_user', JSON.stringify(user));
-      set({ user, token, isAuthenticated: true });
-      socketService.connect();
+      startAuthenticatedSession({
+        disconnectSocket: () => socketService.disconnect(),
+        resetTripState: () => useTripStore.getState().resetBooking(),
+        resetDriverState: () => useDriverStore.getState().resetSessionState(),
+        connectSocket: () => {
+          setStored('crab_access_token', token);
+          setStored('crab_user', JSON.stringify(user));
+          set({ user, token, isAuthenticated: true });
+          socketService.connect();
+        },
+      });
     },
 
     logout: () => {
+      clearSessionBoundState({
+        disconnectSocket: () => socketService.disconnect(),
+        resetTripState: () => useTripStore.getState().resetBooking(),
+        resetDriverState: () => useDriverStore.getState().resetSessionState(),
+      });
       removeStored('crab_access_token');
       removeStored('crab_user');
       set({ user: null, token: null, isAuthenticated: false });
-      socketService.disconnect();
     },
 
     updateUser: (partialUser) => {

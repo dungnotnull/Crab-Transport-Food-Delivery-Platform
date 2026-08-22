@@ -104,7 +104,7 @@ export const LoginPage: React.FC = () => {
           <div className="text-center mt-6 pt-4 border-t border-slate-100">
             <p className="text-xs text-slate-600">
               Chưa có tài khoản?{' '}
-              <Link to="/register" className="font-bold text-[#00B14F] hover:underline">
+              <Link to="/register" className="font-bold text-[#00843D] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-sm">
                 Đăng ký ngay
               </Link>
             </p>

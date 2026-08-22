@@ -8,7 +8,6 @@ import {
   runDriverTripSimulationPlan,
   type DriverSimulationPhase,
   type DriverSimulationSpeed,
-  type DriverSimulationStatus,
 } from '../../utils/driverTripSimulation.utils';
 import { getApiErrorMessage } from '../../services/auth.helpers';
 import { useToast } from '../common/Toast';
@@ -20,29 +19,23 @@ interface DriverTripSimulatorProps {
   disabled?: boolean;
   isPreparingRoute?: boolean;
   onLocation: (payload: DriverLocationUpdatePayload) => void;
-  onStatus: (status: DriverSimulationStatus) => Promise<void>;
   onRunningChange?: (isRunning: boolean) => void;
-  onCompleted?: () => void;
 }
 
 const SIMULATABLE_STATUSES = new Set<Trip['status']>([
   'ACCEPTED',
-  'ARRIVED_AT_PICKUP',
   'IN_TRANSIT',
-  'ARRIVED_AT_DESTINATION',
 ]);
 
 function getPhaseLabel(
   phase: DriverSimulationPhase | null,
-  status: DriverSimulationStatus | null,
+  status: Trip['status'],
 ): string {
   if (phase === 'TO_PICKUP') return 'Tài xế đang đến điểm đón';
   if (phase === 'TO_DROPOFF') return 'Đang chở khách đến điểm đến';
-  if (status === 'ARRIVED_AT_PICKUP') return 'Đã đến điểm đón, chờ khách';
-  if (status === 'IN_TRANSIT') return 'Khách đã lên xe';
-  if (status === 'ARRIVED_AT_DESTINATION') return 'Đã đến điểm đến';
-  if (status === 'COMPLETED') return 'Hoàn tất chuyến đi';
-  return 'Sẵn sàng chạy mô phỏng';
+  if (status === 'ACCEPTED') return 'Mô phỏng chặng đến đón khách';
+  if (status === 'IN_TRANSIT') return 'Mô phỏng chặng bắt đầu đi';
+  return 'Chờ tài xế cập nhật trạng thái thủ công';
 }
 
 export function DriverTripSimulator({
@@ -52,16 +45,13 @@ export function DriverTripSimulator({
   disabled = false,
   isPreparingRoute = false,
   onLocation,
-  onStatus,
   onRunningChange,
-  onCompleted,
 }: DriverTripSimulatorProps) {
   const { showToast } = useToast();
   const [speed, setSpeed] = useState<DriverSimulationSpeed>(2);
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<DriverSimulationPhase | null>(null);
-  const [lastStatus, setLastStatus] = useState<DriverSimulationStatus | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => {
@@ -108,7 +98,6 @@ export function DriverTripSimulator({
     const controller = new AbortController();
     abortControllerRef.current = controller;
     setProgress(0);
-    setLastStatus(null);
     setRunningState(true);
 
     try {
@@ -119,11 +108,6 @@ export function DriverTripSimulator({
           setPhase(action.phase);
           onLocation(payload);
         },
-        onStatus: async (status) => {
-          setPhase(null);
-          setLastStatus(status);
-          await onStatus(status);
-        },
         onProgress: (completedActions, totalActions) => {
           setProgress(Math.round((completedActions / totalActions) * 100));
         },
@@ -131,8 +115,7 @@ export function DriverTripSimulator({
 
       if (result === 'COMPLETED') {
         setProgress(100);
-        showToast('Mô phỏng đã hoàn tất và đồng bộ trạng thái chuyến đi.', 'success');
-        onCompleted?.();
+        showToast('Đã mô phỏng xong vị trí xe. Hãy cập nhật trạng thái bằng nút điều khiển thủ công.', 'success');
       }
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -179,7 +162,7 @@ export function DriverTripSimulator({
               >
                 {isPreparingRoute
                   ? 'Đang tải lộ trình OSRM'
-                  : getPhaseLabel(phase, lastStatus)}
+                  : getPhaseLabel(phase, trip.status)}
               </p>
             </div>
           </div>
@@ -245,13 +228,15 @@ export function DriverTripSimulator({
             className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-black text-white shadow-lg shadow-indigo-600/20 transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/30 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
           >
             <Play className="h-4 w-4 fill-current" aria-hidden="true" />
-            {isPreparingRoute ? 'Đang chuẩn bị lộ trình…' : `Chạy mô phỏng ${speed}x`}
+            {isPreparingRoute
+              ? 'Đang chuẩn bị lộ trình…'
+              : `${trip.status === 'ACCEPTED' ? 'Mô phỏng đến đón khách' : 'Mô phỏng bắt đầu đi'} ${speed}x`}
           </button>
         )}
       </div>
 
       <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-        Công cụ chỉ chạy khi tài xế đã nhận cuốc; vị trí được phát kèm Trip ID để màn khách cập nhật theo thời gian thực.
+        Công cụ chỉ phát vị trí xe ở chặng đến đón khách hoặc bắt đầu đi; mọi trạng thái chuyến đi do tài xế cập nhật thủ công.
       </p>
     </section>
   );

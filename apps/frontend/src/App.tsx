@@ -1,14 +1,35 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/common/Toast';
 import { Navbar } from './components/common/Navbar';
-import { LoginPage } from './pages/auth/LoginPage';
-import { RegisterPage } from './pages/auth/RegisterPage';
-import { CustomerHomePage } from './pages/customer/CustomerHomePage';
-import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
-import { AdminOverviewPage } from './pages/admin/AdminOverviewPage';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { useAuthStore } from './stores/authStore';
+
+const LoginPage = lazy(() =>
+  import('./pages/auth/LoginPage').then((module) => ({ default: module.LoginPage })),
+);
+const RegisterPage = lazy(() =>
+  import('./pages/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })),
+);
+const CustomerHomePage = lazy(() =>
+  import('./pages/customer/CustomerHomePage').then((module) => ({ default: module.CustomerHomePage })),
+);
+const DriverDashboardPage = lazy(() =>
+  import('./pages/driver/DriverDashboardPage').then((module) => ({ default: module.DriverDashboardPage })),
+);
+const AdminOverviewPage = lazy(() =>
+  import('./pages/admin/AdminOverviewPage').then((module) => ({ default: module.AdminOverviewPage })),
+);
+
+const PageFallback = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    className="flex flex-1 items-center justify-center p-8 text-sm font-semibold text-slate-600"
+  >
+    Đang tải màn hình…
+  </div>
+);
 
 // Điều hướng trang chủ theo đúng Role thực tế (giống Grab App)
 const RootRedirect: React.FC = () => {
@@ -34,7 +55,8 @@ export const App: React.FC = () => {
         <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 relative">
           <Navbar />
           <main className="flex-1 flex flex-col">
-            <Routes>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
               {/* Trang chủ tự động chuyển đến đúng Portal của Role */}
               <Route path="/" element={<RootRedirect />} />
 
@@ -59,7 +81,8 @@ export const App: React.FC = () => {
 
               {/* Fallback */}
               <Route path="*" element={<RootRedirect />} />
-            </Routes>
+              </Routes>
+            </Suspense>
           </main>
 
         </div>

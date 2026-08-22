@@ -252,3 +252,57 @@
   - Browser E2E thật trên customer + driver: nhận cuốc, tải/vẽ tuyến OSRM, chạy 5x, marker khách di chuyển, đến điểm đón/điểm trả và hoàn tất chuyến; chạy lại để xác minh dừng mô phỏng rồi customer hủy thì cả hai portal cùng reset, không có page error.
   - `npm run lint`: chưa có script, tiếp tục theo dõi tại `FE-016` / `BUG-022`.
   - Không sửa backend; các lỗi backend phát hiện thêm được ghi tại `BUG-024` và `BUG-025`.
+
+---
+
+## 🚦 Phase 14: Driver Offer Queue & Manual Trip Simulation - [COMPLETED]
+
+- [x] **Task 14.1: Chỉ mô phỏng hai chặng xe di chuyển**
+  - Simulator chỉ phát `driver:update_location` khi trip là `ACCEPTED` (đến đón khách) hoặc `IN_TRANSIT` (bắt đầu đi).
+  - Các status `ARRIVED_AT_PICKUP`, `IN_TRANSIT`, `ARRIVED_AT_DESTINATION`, `COMPLETED` chỉ thay đổi bằng nút thao tác thủ công của Driver; kết thúc mô phỏng không reset active trip.
+- [x] **Task 14.2: Đồng hồ chờ độc lập cho Customer**
+  - Modal tìm tài xế tính thời gian từ `activeTrip.created_at`, nên reload/remount không đưa đồng hồ về 0 và hai trip đồng thời có thời gian riêng.
+- [x] **Task 14.3: Hiển thị nhiều trip offer cho Driver**
+  - Offer Socket được xếp hàng theo `tripId`; Driver xem toàn bộ offer Backend broadcast trong phạm vi 3 km.
+  - Từ chối, TTL hết hạn, hủy hoặc 409 chỉ xóa offer tương ứng; accept thành công xóa các offer còn lại vì Driver đã bận.
+- [x] **Verification**
+  - `npm.cmd test`: 45/45 pass, gồm regression cho simulator, hai đồng hồ User và hàng đợi hai offer cùng điểm đón.
+  - `npm.cmd run build`: pass TypeScript + Vite production build; còn cảnh báo chunk JavaScript 580.76 kB (>500 kB).
+  - Smoke test backend local: với cùng route `CAR_4`, cước khô 36.000 ₫ và cước mưa 54.000 ₫ (1,5×; +18.000 ₫); endpoint weather xác nhận bật mưa thành công, sau test đã tắt lại.
+
+---
+
+## 🛡️ Phase 15: Phase 1–9 Reliability, Accessibility & Bundle Hardening - [COMPLETED]
+
+- [x] **Task 15.1: API và realtime resilience**
+  - Rating chỉ đóng modal/báo thành công sau khi Backend lưu review; lỗi giữ nguyên form để retry.
+  - Socket ghi nhớ room active, tự phát lại `join_room` sau reconnect và quên room của chuyến đã kết thúc.
+  - Admin tải trạng thái thời tiết thực từ Backend; toggle có loading lock và dùng trạng thái Backend xác nhận.
+- [x] **Task 15.2: Driver và Customer business guards**
+  - Chặn tài xế bật online khi ví chưa tải hoặc dưới 100.000 ₫; vẫn luôn cho phép tài xế đang online tắt nhận cuốc.
+  - Booking hiển thị đủ `CASH`, `CREDIT_CARD`, `E_WALLET`; geometry malformed bị reject thay vì dựng route qua pickup giả.
+  - Nhóm request preview giá cũ được hủy khi tọa độ/coupon đổi hoặc màn hình unmount; request id tiếp tục chặn response stale ghi state.
+- [x] **Task 15.3: Accessibility và performance**
+  - Bỏ khóa zoom, sửa ARIA feedback, modal focus trap/return focus, touch target, focus-visible, reduced-motion và contrast nút xanh.
+  - Lazy-load toàn bộ page route; entry JavaScript giảm từ 581,28 kB xuống 246,54 kB và không còn warning chunk >500 kB.
+- [x] **Verification**
+  - `npm.cmd test`: 58/58 pass, giữ nguyên regression simulator chỉ di chuyển ở `ACCEPTED`/`IN_TRANSIT` và không tự đổi status.
+  - `npm.cmd run build`: pass TypeScript + Vite production build, tạo chunk riêng cho Login/Register/Customer/Driver/Admin.
+  - Browser smoke: `/customer`, `/driver`, `/admin` chưa đăng nhập đều redirect `/login`; không có page error.
+  - Axe WCAG A/AA trên `/login`: 0 violation; chỉ còn nhóm contrast `incomplete` cần manual review do nền glass/gradient.
+
+---
+
+## 🗺️ Phase 16: Offline Map Fallback & Session Isolation - [COMPLETED]
+
+- [x] **Task 16.1: Leaflet fallback không cần Internet**
+  - OSM vẫn là tile provider ưu tiên. Sau hai tile error liên tiếp mà chưa có tile tải thành công, `OfflineMapLayer` tạo canvas tile cục bộ, hỗ trợ pan/zoom cùng Leaflet.
+  - UI thông báo rõ đây là sơ đồ offline, không đại diện dữ liệu đường hay địa danh thật; route, marker và bán kính matching tiếp tục nằm trên fallback layer.
+- [x] **Task 16.2: Cô lập state theo phiên đăng nhập**
+  - Login/logout ngắt socket cũ, xóa trip, vị trí, offer và active driver state trước khi kết nối bằng token mới.
+  - Customer chỉ hydrate đúng response `GET /trips/active`; response `null` xóa state stale, response của component đã unmount bị bỏ qua.
+  - Đã xác nhận theo source/backend: booking tạo `FINDING_DRIVER`; frontend chỉ gọi accept từ thao tác Driver. Hiện tượng User vừa đăng ký/đăng nhập thấy cuốc đang đi là state của phiên trước, không phải auto-accept mới.
+- [x] **Verification**
+  - `npm.cmd test`: 64/64 pass, gồm tile-error fallback, deferred Leaflet tile ready, active-trip null hydration và session reset ordering.
+  - `npm.cmd run build`: pass TypeScript + Vite production build; main entry 248,41 kB.
+  - Browser local smoke với OSM DNS không phân giải: `Bản đồ offline` hiển thị canvas sơ đồ cục bộ; User giả lập có `activeTrip: null` thấy BookingPanel, không thấy TripBottomSheet cũ.

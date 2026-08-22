@@ -11,21 +11,24 @@ export const AdminOverviewPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [customers, setCustomers] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
-  const [isRaining, setIsRaining] = useState(false);
+  const [isRaining, setIsRaining] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isWeatherUpdating, setIsWeatherUpdating] = useState(false);
   const { showToast } = useToast();
 
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [statData, custList, drvList] = await Promise.all([
+      const [statData, custList, drvList, weatherStatus] = await Promise.all([
         adminService.getStatistics().catch(() => null),
         adminService.getCustomers(),
         adminService.getDrivers(),
+        adminService.getWeatherStatus().catch(() => null),
       ]);
       if (statData) setStats(statData);
       setCustomers(custList || []);
       setDrivers(drvList || []);
+      if (weatherStatus !== null) setIsRaining(weatherStatus);
     } catch (err: any) {
       showToast('Lỗi tải dữ liệu từ database!', 'error');
     } finally {
@@ -38,18 +41,22 @@ export const AdminOverviewPage: React.FC = () => {
   }, []);
 
   const handleToggleWeather = async () => {
+    if (isRaining === null || isWeatherUpdating) return;
     const nextState = !isRaining;
     try {
-      await adminService.toggleWeatherSurge(nextState);
-      setIsRaining(nextState);
+      setIsWeatherUpdating(true);
+      const confirmedState = await adminService.toggleWeatherSurge(nextState);
+      setIsRaining(confirmedState);
       showToast(
-        nextState
-          ? '🌧️ ĐÃ BẬT Chế độ Mưa bão: Tự động kích hoạt Surge Pricing +50% cước phí!'
-          : '☀️ ĐÃ TẮT Chế độ Mưa bão: Cước phí trở lại bình thường.',
-        nextState ? 'warning' : 'info'
+        confirmedState
+          ? 'Đã bật chế độ mưa bão: tự động áp dụng Surge Pricing +50%.'
+          : 'Đã tắt chế độ mưa bão: cước phí trở lại bình thường.',
+        confirmedState ? 'warning' : 'info'
       );
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Không thể đổi trạng thái thời tiết', 'error');
+    } finally {
+      setIsWeatherUpdating(false);
     }
   };
 
@@ -95,8 +102,11 @@ export const AdminOverviewPage: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <button
             onClick={loadData}
+            type="button"
+            aria-busy={isLoading}
+            disabled={isLoading}
             title="Làm mới dữ liệu từ Database"
-            className="p-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors flex items-center gap-1.5 text-xs font-bold"
+            className="flex min-h-11 items-center gap-1.5 rounded-2xl border border-slate-200 p-3 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#00B14F]' : ''}`} />
             <span>Làm mới DB</span>
@@ -104,15 +114,19 @@ export const AdminOverviewPage: React.FC = () => {
 
           {/* Rain / Weather Surge Switch */}
           <button
+            type="button"
             onClick={handleToggleWeather}
-            className={`px-5 py-3 rounded-2xl font-extrabold text-xs flex items-center gap-2.5 transition-all shadow-md ${
+            aria-pressed={isRaining === true}
+            aria-busy={isWeatherUpdating}
+            disabled={isRaining === null || isWeatherUpdating}
+            className={`flex min-h-11 items-center gap-2.5 rounded-2xl px-5 py-3 text-xs font-extrabold shadow-md transition-[background-color,color,box-shadow,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
               isRaining
                 ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30 ring-4 ring-amber-200'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
             }`}
           >
-            <CloudRain className={`w-5 h-5 ${isRaining ? 'animate-bounce text-white' : 'text-blue-500'}`} />
-            <span>{isRaining ? '🌧️ ĐANG BẬT MƯA BÃO (Surge +50%)' : '☀️ THỜI TIẾT BÌNH THƯỜNG'}</span>
+            <CloudRain aria-hidden="true" className={`w-5 h-5 ${isRaining ? 'animate-bounce text-white motion-reduce:animate-none' : 'text-blue-500'}`} />
+            <span>{isRaining === null ? 'CHƯA ĐỒNG BỘ THỜI TIẾT' : isRaining ? 'ĐANG BẬT MƯA BÃO (Surge +50%)' : 'THỜI TIẾT BÌNH THƯỜNG'}</span>
           </button>
         </div>
       </div>
@@ -169,7 +183,7 @@ export const AdminOverviewPage: React.FC = () => {
               {stats?.totalRevenue ? formatCurrency(stats.totalRevenue) : '0 ₫'}
             </div>
             <p className="text-[11px] text-emerald-700 font-bold mt-1">
-              {isRaining ? '🌧️ Đang áp dụng Surge 1.5x' : '☀️ Giá cước tiêu chuẩn'}
+              {isRaining === null ? 'Chưa đồng bộ trạng thái giá' : isRaining ? 'Đang áp dụng Surge 1.5x' : 'Giá cước tiêu chuẩn'}
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-[#00B14F]">

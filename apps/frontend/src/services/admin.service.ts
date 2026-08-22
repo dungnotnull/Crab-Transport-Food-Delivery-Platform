@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 import { ApiResponse } from '../types/api.types';
 import { User } from '../types/user.types';
+import { normalizeWeatherStatus } from '../utils/weatherStatus.utils';
 
 export interface AdminStats {
   totalTrips: number;
@@ -47,7 +48,16 @@ export const adminService = {
   /**
    * Bật/Tắt chế độ mưa bão (Surge +50%) (`POST /api/v1/pricing/weather`)
    */
-  async toggleWeatherSurge(isRaining: boolean): Promise<void> {
-    await apiClient.post('/pricing/weather', { isRaining });
+  async getWeatherStatus(): Promise<boolean> {
+    const res = await apiClient.get<ApiResponse<{ isExtremeWeather: boolean }>>('/pricing/weather');
+    return normalizeWeatherStatus(res.data.data);
+  },
+
+  async toggleWeatherSurge(isRaining: boolean): Promise<boolean> {
+    const res = await apiClient.post<ApiResponse<{ isExtremeWeather: boolean }>>(
+      '/pricing/weather',
+      { isRaining },
+    );
+    return normalizeWeatherStatus(res.data.data);
   },
 };

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { Button } from './Button';
 import { Badge } from './Badge';
 import { LogOut, Shield, Car, UserRound } from 'lucide-react';
 
@@ -31,7 +30,7 @@ export const Navbar: React.FC = () => {
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">CrabCar</span>
-                <span className="hidden rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-bold uppercase text-[#00B14F] md:inline-flex">
+                <span className="hidden rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-bold uppercase text-[#00843D] md:inline-flex">
                   {user?.role === 'DRIVER'
                     ? 'Driver App'
                     : user?.role === 'ADMIN'
@@ -39,7 +38,7 @@ export const Navbar: React.FC = () => {
                     : 'Ride Hailing'}
                 </span>
               </div>
-              <p className="hidden text-[10px] font-medium leading-none text-slate-400 md:block">
+              <p className="hidden text-[10px] font-medium leading-none text-slate-600 md:block">
                 {user?.role === 'DRIVER'
                   ? 'Ứng dụng Đối tác Tài xế'
                   : user?.role === 'ADMIN'
@@ -130,13 +129,17 @@ export const Navbar: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link to="/login">
-                <Button variant="ghost" size="sm">
-                  Đăng nhập
-                </Button>
+              <Link
+                to="/login"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              >
+                Đăng nhập
               </Link>
-              <Link to="/register">
-                <Button size="sm">Đăng ký</Button>
+              <Link
+                to="/register"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#00843D] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#006B31] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              >
+                Đăng ký
               </Link>
             </div>
           )}

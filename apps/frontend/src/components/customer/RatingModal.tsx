@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
-import { Star, CheckCircle2, Heart } from 'lucide-react';
+import { Star, Heart } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { tripService } from '../../services/trip.service';
+import { getApiErrorMessage } from '../../services/auth.helpers';
+import { submitTripRating } from '../../utils/ratingSubmission.utils';
 
 interface RatingModalProps {
   isOpen: boolean;
@@ -34,25 +36,34 @@ export const RatingModal: React.FC<RatingModalProps> = ({ isOpen, onClose, tripI
   };
 
   const handleSubmit = async () => {
-    try {
-      setIsSubmitting(true);
-      const combinedFeedback = `${selectedTags.join(', ')}. ${comment}`.trim();
-      await tripService.rateTrip(tripId, rating, combinedFeedback);
-      showToast('Cảm ơn bạn đã gửi đánh giá! Chúc bạn một ngày tốt lành.', 'success');
-      onClose();
-    } catch {
-      showToast('Đã ghi nhận đánh giá thành công!', 'success');
-      onClose();
-    } finally {
-      setIsSubmitting(false);
-    }
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    const combinedFeedback = [selectedTags.join(', '), comment.trim()]
+      .filter(Boolean)
+      .join('. ');
+
+    await submitTripRating({
+      tripId,
+      rating,
+      feedback: combinedFeedback,
+      rateTrip: tripService.rateTrip,
+      onSuccess: () => {
+        showToast('Cảm ơn bạn đã gửi đánh giá! Chúc bạn một ngày tốt lành.', 'success');
+        onClose();
+      },
+      onError: (error) => {
+        showToast(getApiErrorMessage(error, 'Chưa thể gửi đánh giá. Vui lòng thử lại.'), 'error');
+      },
+    });
+    setIsSubmitting(false);
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Đánh Giá Chuyến Đi" maxWidth="md">
       <div className="flex flex-col items-center text-center gap-4">
         <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-[#00B14F] shadow-inner">
-          <Heart className="w-8 h-8 fill-emerald-500 text-emerald-500" />
+          <Heart className="w-8 h-8 fill-emerald-500 text-emerald-500" aria-hidden="true" />
         </div>
 
         <div>
@@ -67,9 +78,12 @@ export const RatingModal: React.FC<RatingModalProps> = ({ isOpen, onClose, tripI
               key={star}
               type="button"
               onClick={() => setRating(star)}
-              className="p-1.5 transition-transform hover:scale-125 focus:outline-none"
+              aria-label={`${star} sao`}
+              aria-pressed={rating === star}
+              className="min-h-11 min-w-11 rounded-xl p-1.5 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 motion-reduce:transform-none"
             >
               <Star
+                aria-hidden="true"
                 className={`w-9 h-9 ${
                   star <= rating
                     ? 'fill-amber-400 text-amber-400 drop-shadow-sm'
@@ -87,7 +101,8 @@ export const RatingModal: React.FC<RatingModalProps> = ({ isOpen, onClose, tripI
               key={tag}
               type="button"
               onClick={() => handleToggleTag(tag)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+              aria-pressed={selectedTags.includes(tag)}
+              className={`min-h-11 rounded-full border px-3 text-xs font-semibold transition-[background-color,border-color,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
                 selectedTags.includes(tag)
                   ? 'bg-emerald-50 text-[#00B14F] border-[#00B14F]'
                   : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -99,12 +114,15 @@ export const RatingModal: React.FC<RatingModalProps> = ({ isOpen, onClose, tripI
         </div>
 
         {/* Comment textarea */}
+        <label htmlFor="rating-comment" className="sr-only">Nhận xét cho tài xế</label>
         <textarea
+          id="rating-comment"
+          name="rating-comment"
           rows={3}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Viết thêm nhận xét cho tài xế (tùy chọn)..."
-          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs focus:outline-none focus:border-[#00B14F] focus:ring-2 focus:ring-[#00B14F]/15 placeholder:text-slate-400"
+          placeholder="Viết thêm nhận xét cho tài xế (tùy chọn)…"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:border-[#00B14F] focus-visible:ring-2 focus-visible:ring-[#00B14F]/15"
         />
 
         {/* Submit Button */}

@@ -3,27 +3,32 @@ import { useTripStore } from '../../stores/tripStore';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
+import { getTripSearchElapsedSeconds } from '../../utils/tripWaitingTime.utils';
 import { X, MapPin, Radio, Bike, Car } from 'lucide-react';
 
 interface FindingRadarModalProps {
   onCancel: () => void;
   isCancelling?: boolean;
+  createdAt?: string;
 }
 
 export const FindingRadarModal: React.FC<FindingRadarModalProps> = ({
   onCancel,
   isCancelling = false,
+  createdAt,
 }) => {
   const { pickup, dropoff, serviceType, activeTrip } = useTripStore();
-  const [searchSeconds, setSearchSeconds] = useState(0);
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
-  // Đếm thời gian tìm kiếm
+  // Đồng hồ luôn dựa vào created_at của trip, nên remount/reload không làm thời gian chờ quay về 0.
   useEffect(() => {
     const timer = setInterval(() => {
-      setSearchSeconds((s) => s + 1);
+      setCurrentTimeMs(Date.now());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const searchSeconds = getTripSearchElapsedSeconds(createdAt, currentTimeMs);
 
   const mins = Math.floor(searchSeconds / 60);
   const secs = searchSeconds % 60;

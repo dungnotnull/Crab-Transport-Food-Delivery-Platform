@@ -23,7 +23,8 @@ export const Input: React.FC<InputProps> = ({
   ...props
 }) => {
   const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
-  const feedbackId = inputId ? `${inputId}-feedback` : undefined;
+  const feedbackId = inputId && (error || helperText) ? `${inputId}-feedback` : undefined;
+  const describedBy = [ariaDescribedBy, feedbackId].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className="w-full flex flex-col gap-1.5">
@@ -41,7 +42,7 @@ export const Input: React.FC<InputProps> = ({
         <input
           id={inputId}
           aria-invalid={error ? true : ariaInvalid}
-          aria-describedby={feedbackId || ariaDescribedBy}
+          aria-describedby={describedBy}
           className={twMerge(
             clsx(
               'w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-900 border-2 rounded-xl text-sm transition-[background-color,border-color,box-shadow] duration-200 focus-visible:outline-none focus:ring-4 placeholder:text-slate-400',

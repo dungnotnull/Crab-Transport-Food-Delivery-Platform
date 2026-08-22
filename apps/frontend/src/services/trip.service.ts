@@ -3,10 +3,11 @@ import { ApiResponse } from '../types/api.types';
 import { BookTripDto, LocationPoint, RoutePreviewData, ServiceType, Trip } from '../types/trip.types';
 import {
   normalizeLocationPoint,
+  normalizeRouteGeometry,
   normalizeTrip,
 } from '../utils/tripNormalization.utils';
 
-export { normalizeLocationPoint, normalizeTrip };
+export { normalizeLocationPoint, normalizeRouteGeometry, normalizeTrip };
 
 export const tripService = {
   /**
@@ -16,14 +17,19 @@ export const tripService = {
     pickup: LocationPoint,
     dropoff: LocationPoint,
     vehicleType: ServiceType = 'CAR_4',
-    couponCode?: string
+    couponCode?: string,
+    signal?: AbortSignal
   ): Promise<RoutePreviewData> {
-    const res = await apiClient.post<ApiResponse<any>>('/trips/preview', {
-      pickup: { lat: pickup.lat, lng: pickup.lng },
-      dropoff: { lat: dropoff.lat, lng: dropoff.lng },
-      vehicleType,
-      coupon_code: couponCode || undefined,
-    });
+    const res = await apiClient.post<ApiResponse<any>>(
+      '/trips/preview',
+      {
+        pickup: { lat: pickup.lat, lng: pickup.lng },
+        dropoff: { lat: dropoff.lat, lng: dropoff.lng },
+        vehicleType,
+        coupon_code: couponCode || undefined,
+      },
+      { signal }
+    );
 
     const data = res.data.data;
     const fare = Number(data?.fare ?? data?.total_fare);
@@ -32,22 +38,7 @@ export const tripService = {
       throw new Error('API chưa trả về đủ dữ liệu tuyến đường và cước phí');
     }
 
-    // Chuẩn hóa geometry từ backend (nếu backend trả về GeoJSON [lng, lat] thì chuyển sang Leaflet [lat, lng])
-    let geometry: [number, number][] = [];
-    if (data.geometry && Array.isArray(data.geometry)) {
-      geometry = data.geometry.map((point: any) => {
-        if (Array.isArray(point) && point.length >= 2) {
-          // Nếu point là [lng, lat] (GeoJSON chuẩn với lng > 100), đảo lại thành [lat, lng]
-          if (point[0] > point[1] && point[0] > 50) {
-            return [point[1], point[0]];
-          }
-          return [point[0], point[1]];
-        }
-        return [pickup.lat, pickup.lng];
-      });
-    } else if (data.geometry && data.geometry.coordinates) {
-      geometry = data.geometry.coordinates.map((point: any) => [point[1], point[0]]);
-    }
+    const geometry = normalizeRouteGeometry(data.geometry);
 
     return {
       distance: data.distance,

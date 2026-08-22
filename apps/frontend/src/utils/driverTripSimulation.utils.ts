@@ -18,16 +18,12 @@ export type DriverSimulationStatus = Extract<
 >;
 
 export type DriverSimulationAction =
-  | {
-      type: 'LOCATION';
-      phase: DriverSimulationPhase;
-      progress: number;
-      payload: DriverLocationUpdatePayload;
-    }
-  | {
-      type: 'STATUS';
-      status: DriverSimulationStatus;
-    };
+  {
+    type: 'LOCATION';
+    phase: DriverSimulationPhase;
+    progress: number;
+    payload: DriverLocationUpdatePayload;
+  };
 
 export type DriverSimulationRunResult = 'COMPLETED' | 'CANCELLED';
 
@@ -36,9 +32,8 @@ interface RunDriverTripSimulationOptions {
   signal?: AbortSignal;
   onLocation: (
     payload: DriverLocationUpdatePayload,
-    action: Extract<DriverSimulationAction, { type: 'LOCATION' }>,
+    action: DriverSimulationAction,
   ) => void | Promise<void>;
-  onStatus: (status: DriverSimulationStatus) => void | Promise<void>;
   onProgress?: (
     completedActions: number,
     totalActions: number,
@@ -48,8 +43,6 @@ interface RunDriverTripSimulationOptions {
 }
 
 const LOCATION_TICK_MS = 1200;
-const PICKUP_PAUSE_MS = 1800;
-const DESTINATION_PAUSE_MS = 900;
 
 export function shouldSyncLiveDriverLocation(
   isOnline: boolean,
@@ -199,61 +192,34 @@ export function createDriverTripSimulationPlan({
   stepsPerLeg = 12,
 }: CreateDriverTripSimulationPlanInput): DriverSimulationAction[] {
   const safeStepsPerLeg = Math.max(1, Math.floor(stepsPerLeg));
-  const actions: DriverSimulationAction[] = [];
 
   if (status === 'ACCEPTED') {
-    actions.push(
-      ...createLocationActions(
-        tripId,
-        currentLocation,
-        pickup,
-        'TO_PICKUP',
-        safeStepsPerLeg,
-      ),
-      { type: 'STATUS', status: 'ARRIVED_AT_PICKUP' },
-      { type: 'STATUS', status: 'IN_TRANSIT' },
+    return createLocationActions(
+      tripId,
+      currentLocation,
+      pickup,
+      'TO_PICKUP',
+      safeStepsPerLeg,
     );
   }
 
-  if (
-    status === 'ACCEPTED' ||
-    status === 'ARRIVED_AT_PICKUP' ||
-    status === 'IN_TRANSIT'
-  ) {
-    const dropoffStart = status === 'IN_TRANSIT' ? currentLocation : pickup;
-
-    if (status === 'ARRIVED_AT_PICKUP') {
-      actions.push({ type: 'STATUS', status: 'IN_TRANSIT' });
-    }
-
-    actions.push(
-      ...createRouteLocationActions(
-        tripId,
-        dropoffStart,
-        dropoff,
-        'TO_DROPOFF',
-        safeStepsPerLeg,
-        dropoffRoute,
-      ),
-      { type: 'STATUS', status: 'ARRIVED_AT_DESTINATION' },
-      { type: 'STATUS', status: 'COMPLETED' },
+  if (status === 'IN_TRANSIT') {
+    return createRouteLocationActions(
+      tripId,
+      currentLocation,
+      dropoff,
+      'TO_DROPOFF',
+      safeStepsPerLeg,
+      dropoffRoute,
     );
-  } else if (status === 'ARRIVED_AT_DESTINATION') {
-    actions.push({ type: 'STATUS', status: 'COMPLETED' });
   }
 
-  return actions;
+  // Chỉ giả lập tọa độ ở hai chặng xe đang chạy; tài xế tự xác nhận mọi trạng thái còn lại.
+  return [];
 }
 
 function waitForDelay(durationMs: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, durationMs));
-}
-
-function getDelayAfterAction(action: DriverSimulationAction): number {
-  if (action.type === 'LOCATION') return LOCATION_TICK_MS;
-  if (action.status === 'ARRIVED_AT_PICKUP') return PICKUP_PAUSE_MS;
-  if (action.status === 'ARRIVED_AT_DESTINATION') return DESTINATION_PAUSE_MS;
-  return 0;
 }
 
 export async function runDriverTripSimulationPlan(
@@ -262,7 +228,6 @@ export async function runDriverTripSimulationPlan(
     speed,
     signal,
     onLocation,
-    onStatus,
     onProgress,
     wait = waitForDelay,
   }: RunDriverTripSimulationOptions,
@@ -272,19 +237,12 @@ export async function runDriverTripSimulationPlan(
   for (const [index, action] of actions.entries()) {
     if (signal?.aborted) return 'CANCELLED';
 
-    if (action.type === 'LOCATION') {
-      await onLocation(action.payload, action);
-    } else {
-      await onStatus(action.status);
-    }
+    await onLocation(action.payload, action);
 
     if (signal?.aborted) return 'CANCELLED';
     onProgress?.(index + 1, actions.length, action);
 
-    const delayMs = getDelayAfterAction(action);
-    if (delayMs > 0) {
-      await wait(delayMs / safeSpeed);
-    }
+    await wait(LOCATION_TICK_MS / safeSpeed);
   }
 
   return signal?.aborted ? 'CANCELLED' : 'COMPLETED';

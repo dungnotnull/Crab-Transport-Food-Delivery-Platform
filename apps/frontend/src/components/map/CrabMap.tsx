@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Circle, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { LocationPoint } from '../../types/trip.types';
@@ -6,6 +6,8 @@ import { PickupDropoffMarkers } from './PickupDropoffMarkers';
 import { RoutePolyline } from './RoutePolyline';
 import { MovingVehicleMarker } from './MovingVehicleMarker';
 import type { FleetEligibilityReason } from '../../utils/fleetSimulation.utils';
+import { OfflineMapLayer } from './OfflineMapLayer';
+import { shouldEnableOfflineMap } from '../../utils/offlineMap.utils';
 
 export interface NearbyDriverInfo {
   id: string;
@@ -101,6 +103,10 @@ export const CrabMap: React.FC<CrabMapProps> = ({
   onDropoffChange,
   className = 'w-full h-full',
 }) => {
+  const [tileErrorCount, setTileErrorCount] = useState(0);
+  const [hasLoadedTile, setHasLoadedTile] = useState(false);
+  const isOfflineMap = shouldEnableOfflineMap(tileErrorCount, hasLoadedTile);
+
   const centerCoord: [number, number] = isValidCoord(pickup)
     ? [pickup.lat, pickup.lng]
     : isValidCoord(dropoff)
@@ -116,12 +122,20 @@ export const CrabMap: React.FC<CrabMapProps> = ({
         className="w-full h-full z-0"
         zoomControl={false}
       >
-        {/* OpenStreetMap Tile Layer miễn phí */}
+        {/* CartoDB Voyager Tile Layer (Reliable for local dev, avoids OSM rate limits) */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           maxZoom={19}
+          eventHandlers={{
+            tileerror: () => setTileErrorCount((count) => count + 1),
+            tileload: () => {
+              setHasLoadedTile(true);
+              setTileErrorCount(0);
+            },
+          }}
         />
+        {isOfflineMap ? <OfflineMapLayer /> : null}
 
         {/* Handlers & Auto-fit bounds */}
         <MapClickHandler onClick={onMapClick} />
@@ -173,6 +187,14 @@ export const CrabMap: React.FC<CrabMapProps> = ({
           />
         ))}
       </MapContainer>
+      {isOfflineMap ? (
+        <div
+          role="status"
+          className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-[11px] font-semibold text-amber-900 shadow-md backdrop-blur-sm"
+        >
+          Bản đồ offline: đang hiển thị sơ đồ cục bộ; dữ liệu đường và địa danh không khả dụng.
+        </div>
+      ) : null}
     </div>
   );
 };

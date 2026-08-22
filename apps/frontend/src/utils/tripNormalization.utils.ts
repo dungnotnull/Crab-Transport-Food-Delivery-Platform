@@ -13,6 +13,43 @@ function isCoordinateInRange(lat: number, lng: number): boolean {
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
+/** Chuẩn hóa geometry Backend sang cặp Leaflet [lat, lng] và từ chối point bị lỗi. */
+export function normalizeRouteGeometry(geometry: unknown): [number, number][] {
+  if (geometry === null || geometry === undefined) return [];
+
+  const isGeoJson = !Array.isArray(geometry);
+  const coordinates = Array.isArray(geometry)
+    ? geometry
+    : geometry && typeof geometry === 'object'
+      ? (geometry as Record<string, unknown>).coordinates
+      : null;
+
+  if (!Array.isArray(coordinates)) {
+    throw new Error('Dữ liệu hình học tuyến đường không hợp lệ');
+  }
+
+  return coordinates.map((point) => {
+    if (!Array.isArray(point) || point.length < 2) {
+      throw new Error('Dữ liệu hình học tuyến đường không hợp lệ');
+    }
+
+    const first = toFiniteNumber(point[0]);
+    const second = toFiniteNumber(point[1]);
+    if (first === null || second === null) {
+      throw new Error('Dữ liệu hình học tuyến đường không hợp lệ');
+    }
+
+    const shouldReverse = isGeoJson || (first > 50 && second >= -90 && second <= 90);
+    const lat = shouldReverse ? second : first;
+    const lng = shouldReverse ? first : second;
+    if (!isCoordinateInRange(lat, lng)) {
+      throw new Error('Dữ liệu hình học tuyến đường không hợp lệ');
+    }
+
+    return [lat, lng] as [number, number];
+  });
+}
+
 /** Chuẩn hóa tọa độ API và từ chối dữ liệu lỗi thay vì dựng vị trí giả. */
 export function normalizeLocationPoint(
   point: unknown,

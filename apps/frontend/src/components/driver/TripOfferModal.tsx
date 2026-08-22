@@ -3,155 +3,179 @@ import { DriverTripOfferPayload } from '../../types/socket.types';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
-import { formatDistance, formatDuration } from '../../utils/geo.utils';
-import { MapPin, Navigation, DollarSign, BellRing } from 'lucide-react';
+import { formatDistance } from '../../utils/geo.utils';
+import { getRemainingOfferSeconds } from '../../utils/tripOfferQueue.utils';
+import { MapPin, Navigation, BellRing } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { SingleFlightGate } from '../../utils/tripRules';
 
 interface TripOfferModalProps {
-  offer: DriverTripOfferPayload | null;
+  offers: DriverTripOfferPayload[];
   onAccept: (tripId: string) => Promise<void> | void;
-  onDecline: () => void;
+  onDecline: (tripId: string) => void;
 }
 
-export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offer, onAccept, onDecline }) => {
-  const [timeLeft, setTimeLeft] = useState(15);
-  const [isAccepting, setIsAccepting] = useState(false);
-  const acceptingRef = useRef(false);
+export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept, onDecline }) => {
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const [acceptingTripId, setAcceptingTripId] = useState<string | null>(null);
   const acceptGateRef = useRef(new SingleFlightGate());
+  const expiredOfferKeysRef = useRef(new Set<string>());
+  const clockSkewMapRef = useRef(new Map<string, number>());
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const isOpen = offers.length > 0;
   const { showToast } = useToast();
 
   useEffect(() => {
-    if (!offer) return;
-    setTimeLeft(15);
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const focusFrame = window.requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+    });
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (acceptingRef.current) return prev;
-        if (prev <= 1) {
-          clearInterval(timer);
-          onDecline();
-          showToast('Hết thời gian nhận cuốc!', 'warning');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      previouslyFocused?.focus();
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    setCurrentTimeMs(Date.now());
+    const timer = window.setInterval(() => setCurrentTimeMs(Date.now()), 1000);
 
     return () => clearInterval(timer);
-  }, [offer, onDecline, showToast]);
+  }, []);
 
-  if (!offer) return null;
+  useEffect(() => {
+    const offerKeys = new Set(offers.map((offer) => `${offer.tripId}:${offer.expiredAt}`));
+    expiredOfferKeysRef.current = new Set(
+      [...expiredOfferKeysRef.current].filter((key) => offerKeys.has(key)),
+    );
 
-  const strokeDashoffset = (1 - timeLeft / 15) * 283;
+    for (const key of clockSkewMapRef.current.keys()) {
+      if (!offers.find(o => o.tripId === key)) {
+        clockSkewMapRef.current.delete(key);
+      }
+    }
 
-  const handleAcceptTrip = async () => {
+    offers.forEach((offer) => {
+      if (!clockSkewMapRef.current.has(offer.tripId)) {
+        const serverCreatedAtMs = Date.parse(offer.expiredAt) - 15000;
+        let skew = Date.now() - serverCreatedAtMs;
+        if (!Number.isFinite(skew) || Math.abs(skew) > 86400000) {
+          skew = 0;
+        }
+        clockSkewMapRef.current.set(offer.tripId, skew);
+      }
+
+      const skew = clockSkewMapRef.current.get(offer.tripId) || 0;
+      const adjustedCurrentTimeMs = currentTimeMs - skew;
+
+      const offerKey = `${offer.tripId}:${offer.expiredAt}`;
+      if (
+        offer.tripId === acceptingTripId ||
+        getRemainingOfferSeconds(offer.expiredAt, adjustedCurrentTimeMs) > 0 ||
+        expiredOfferKeysRef.current.has(offerKey)
+      ) return;
+
+      expiredOfferKeysRef.current.add(offerKey);
+      onDecline(offer.tripId);
+      showToast('Một cuốc đã hết thời gian nhận.', 'warning');
+    });
+  }, [acceptingTripId, currentTimeMs, offers, onDecline, showToast]);
+
+  if (!isOpen) return null;
+
+  const handleAcceptTrip = async (tripId: string) => {
     await acceptGateRef.current.run(async () => {
-      acceptingRef.current = true;
-      setIsAccepting(true);
+      setAcceptingTripId(tripId);
       try {
-        await onAccept(offer.tripId);
+        await onAccept(tripId);
       } finally {
-        acceptingRef.current = false;
-        setIsAccepting(false);
+        setAcceptingTripId(null);
       }
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border-2 border-emerald-500 flex flex-col gap-4">
-        {/* Header with 15s Radial Countdown Timer */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-md animate-in fade-in duration-200 motion-reduce:animate-none">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trip-offer-title"
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col gap-4 overflow-hidden rounded-3xl border-2 border-emerald-500 bg-white p-5 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:p-6"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-[#00B14F]">
-              <BellRing className="w-5 h-5 animate-bounce" />
+              <BellRing className="w-5 h-5 animate-bounce motion-reduce:animate-none" aria-hidden="true" />
             </div>
             <div>
-              <Badge variant="warning" size="sm">Cuốc Mới Nổ</Badge>
-              <h3 className="text-base font-black text-slate-900">Yêu cầu chuyến đi mới!</h3>
-            </div>
-          </div>
-
-          {/* Radial Countdown Widget */}
-          <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" stroke="#E2E8F0" strokeWidth="8" fill="none" />
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                stroke={timeLeft <= 5 ? '#EF4444' : '#00B14F'}
-                strokeWidth="8"
-                strokeDasharray="283"
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                fill="none"
-                className="transition-[stroke-dashoffset,stroke] duration-1000 ease-linear"
-              />
-            </svg>
-            <span className={`absolute font-black text-sm ${timeLeft <= 5 ? 'text-red-500' : 'text-slate-800'}`}>
-              {timeLeft}s
-            </span>
-          </div>
-        </div>
-
-        {/* Fare Highlight */}
-        <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Thu nhập ước tính</span>
-            <div className="text-2xl font-black text-[#00B14F] tracking-tight">
-              {formatCurrency(offer.fare)}
-            </div>
-          </div>
-          <div className="text-right">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quãng đường</span>
-            <div className="text-sm font-extrabold text-slate-800">
-              {typeof offer.distance === 'number' ? formatDistance(offer.distance) : 'Đang cập nhật'}
+              <Badge variant="warning" size="sm">{offers.length} cuốc mới</Badge>
+              <h3 id="trip-offer-title" className="text-base font-black text-slate-900">Chọn chuyến phù hợp</h3>
             </div>
           </div>
         </div>
 
-        {/* Trip Route Details */}
-        <div className="flex flex-col gap-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-xs">
-          <div className="flex items-start gap-2.5">
-            <MapPin className="w-4 h-4 text-[#00B14F] shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-slate-500 text-[10px] uppercase">Đón tại:</span>
-              <p className="font-bold text-slate-800">{offer.pickup.address || 'Địa chỉ đang cập nhật'}</p>
-            </div>
-          </div>
+        <div className="flex max-h-[min(64dvh,38rem)] flex-col gap-3 overflow-y-auto pr-1">
+          {offers.map((offer) => {
+            const skew = clockSkewMapRef.current.get(offer.tripId) || 0;
+            const adjustedCurrentTimeMs = currentTimeMs - skew;
+            const secondsLeft = getRemainingOfferSeconds(offer.expiredAt, adjustedCurrentTimeMs);
+            const isAccepting = acceptingTripId === offer.tripId;
 
-          <div className="border-t border-slate-200/60 pt-2 flex items-start gap-2.5">
-            <Navigation className="w-4 h-4 text-[#EF4444] shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-slate-500 text-[10px] uppercase">Giao tại:</span>
-              <p className="font-bold text-slate-800">{offer.dropoff.address || 'Địa chỉ đang cập nhật'}</p>
-            </div>
-          </div>
-        </div>
+            return (
+              <article key={offer.tripId} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Thu nhập ước tính</p>
+                    <p className="text-xl font-black tracking-tight text-[#00B14F]">{formatCurrency(offer.fare)}</p>
+                  </div>
+                  <div aria-live="polite" className={`rounded-xl px-2.5 py-1 text-xs font-black ${secondsLeft <= 5 ? 'bg-red-50 text-red-600' : 'bg-white text-slate-700'}`}>
+                    {secondsLeft}s
+                  </div>
+                </div>
 
-        {/* Action Buttons: Accept / Decline */}
-        <div className="grid grid-cols-2 gap-2.5 pt-1">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={onDecline}
-            disabled={isAccepting}
-            className="text-slate-600 font-bold hover:bg-slate-100"
-          >
-            Từ chối
-          </Button>
-          <Button
-            variant="primary"
-            size="lg"
-            isLoading={isAccepting}
-            disabled={isAccepting}
-            onClick={handleAcceptTrip}
-            className="font-extrabold shadow-lg shadow-emerald-600/30"
-          >
-            Nhận cuốc ({timeLeft}s)
-          </Button>
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00B14F]" aria-hidden="true" />
+                    <p className="min-w-0 font-semibold text-slate-800"><span className="font-bold text-slate-500">Đón: </span>{offer.pickup.address || 'Địa chỉ đang cập nhật'}</p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-[#EF4444]" aria-hidden="true" />
+                    <p className="min-w-0 font-semibold text-slate-800"><span className="font-bold text-slate-500">Trả: </span>{offer.dropoff.address || 'Địa chỉ đang cập nhật'}</p>
+                  </div>
+                  <p className="pl-6.5 font-semibold text-slate-500">
+                    {typeof offer.distance === 'number' ? formatDistance(offer.distance) : 'Khoảng cách đang cập nhật'}
+                  </p>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => onDecline(offer.tripId)}
+                    disabled={acceptingTripId !== null}
+                    className="font-bold text-slate-600 hover:bg-white"
+                  >
+                    Từ chối
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    isLoading={isAccepting}
+                    disabled={acceptingTripId !== null || secondsLeft === 0}
+                    onClick={() => void handleAcceptTrip(offer.tripId)}
+                    className="font-extrabold shadow-md shadow-emerald-600/20"
+                  >
+                    Nhận cuốc
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </div>

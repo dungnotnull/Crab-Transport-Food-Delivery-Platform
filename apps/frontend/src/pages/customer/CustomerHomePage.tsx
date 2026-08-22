@@ -13,6 +13,7 @@ import { geocodingService } from '../../services/geocoding.service';
 import { useFleetSimulation } from '../../hooks/useFleetSimulation';
 import { canCustomerCancel } from '../../utils/tripRules';
 import { isEventForActiveTrip } from '../../utils/driverTripSimulation.utils';
+import { hydrateCustomerActiveTrip } from '../../utils/customerTripHydration.utils';
 import type {
   TripLocationStreamPayload,
   TripStatusChangedPayload,
@@ -50,37 +51,45 @@ export const CustomerHomePage: React.FC = () => {
 
   // 1. Fetch active trip on mount to restore state
   useEffect(() => {
+    let isCurrent = true;
     tripService
       .getActiveTrip()
       .then((trip) => {
-        if (trip) {
-          setActiveTrip(trip);
-          setPickup(trip.pickup_location);
-          setDropoff(trip.dropoff_location);
-          if (trip.status === 'FINDING_DRIVER') {
-            setIsSearchingDriver(true);
-          } else {
-            setIsSearchingDriver(false);
-          }
+        if (!isCurrent) return;
+        hydrateCustomerActiveTrip(trip, {
+          onEmpty: resetBooking,
+          onActive: (activeTripFromApi) => {
+            setActiveTrip(activeTripFromApi);
+            setPickup(activeTripFromApi.pickup_location);
+            setDropoff(activeTripFromApi.dropoff_location);
+            setIsSearchingDriver(activeTripFromApi.status === 'FINDING_DRIVER');
 
-          // Tự động tải lại đường dẫn Polyline nếu đang trong chuyến
-          if (trip.pickup_location && trip.dropoff_location) {
-            tripService
-              .previewTrip(trip.pickup_location, trip.dropoff_location, trip.service_type || 'CAR_4')
-              .then((preview) => {
-                useTripStore.getState().setRoutePreview(preview);
-              })
-              .catch(() => {});
-          }
+            // Tự động tải lại đường dẫn Polyline nếu đang trong chuyến
+            if (activeTripFromApi.pickup_location && activeTripFromApi.dropoff_location) {
+              tripService
+                .previewTrip(
+                  activeTripFromApi.pickup_location,
+                  activeTripFromApi.dropoff_location,
+                  activeTripFromApi.service_type || 'CAR_4',
+                )
+                .then((preview) => {
+                  if (isCurrent) useTripStore.getState().setRoutePreview(preview);
+                })
+                .catch(() => {});
+            }
 
-          // Join socket room
-          socketService.joinRoom(`trip_${trip.id}`);
-        }
+            // Join socket room
+            socketService.joinRoom(`trip_${activeTripFromApi.id}`);
+          },
+        });
       })
       .catch(() => {
         // no active trip
       });
-  }, [setActiveTrip, setPickup, setDropoff, setIsSearchingDriver]);
+    return () => {
+      isCurrent = false;
+    };
+  }, [resetBooking, setActiveTrip, setPickup, setDropoff, setIsSearchingDriver]);
 
   // 2. Listen to socket events
   useEffect(() => {
@@ -90,6 +99,7 @@ export const CustomerHomePage: React.FC = () => {
 
       if (data.status === 'CANCELLED') {
         showToast('Chuyến đi đã bị hủy!', 'warning');
+        socketService.forgetRoom(`trip_${data.tripId}`);
         resetBooking();
         return;
       }
@@ -116,6 +126,7 @@ export const CustomerHomePage: React.FC = () => {
       }
 
       if (data.status === 'COMPLETED') {
+        socketService.forgetRoom(`trip_${data.tripId}`);
         setIsRatingOpen(true);
       }
     };
@@ -191,6 +202,7 @@ export const CustomerHomePage: React.FC = () => {
     try {
       setIsCancelling(true);
       await tripService.cancelTrip(activeTrip.id);
+      socketService.forgetRoom(`trip_${activeTrip.id}`);
       resetBooking();
       showToast('Đã hủy tìm kiếm tài xế', 'warning');
     } catch (err) {
@@ -206,6 +218,7 @@ export const CustomerHomePage: React.FC = () => {
     try {
       setIsCancelling(true);
       await tripService.cancelTrip(activeTrip.id);
+      socketService.forgetRoom(`trip_${activeTrip.id}`);
       resetBooking();
       showToast('Đã hủy chuyến đi thành công', 'warning');
     } catch (err) {
@@ -272,6 +285,7 @@ export const CustomerHomePage: React.FC = () => {
         <FindingRadarModal
           onCancel={handleCancelSearch}
           isCancelling={isCancelling}
+          createdAt={activeTrip?.created_at}
         />
       )}
 

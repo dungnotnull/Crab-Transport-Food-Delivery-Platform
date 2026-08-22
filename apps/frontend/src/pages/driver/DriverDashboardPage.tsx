@@ -29,8 +29,11 @@ import {
   createDriverLocationUpdatePayload,
   isEventForActiveTrip,
   shouldSyncLiveDriverLocation,
-  type DriverSimulationStatus,
 } from '../../utils/driverTripSimulation.utils';
+import {
+  MIN_DRIVER_WALLET_BALANCE,
+  canDriverGoOnline,
+} from '../../utils/driverWallet.utils';
 import { Power, Wallet, Star, Car, MapPin, Navigation, Compass, User } from 'lucide-react';
 
 const TRIP_STEP_BY_STATUS: Partial<Record<TripStatus, number>> = {
@@ -41,10 +44,26 @@ const TRIP_STEP_BY_STATUS: Partial<Record<TripStatus, number>> = {
   COMPLETED: 0,
 };
 
+type DriverManualTripStatus = Extract<
+  TripStatus,
+  | 'ARRIVED_AT_PICKUP'
+  | 'IN_TRANSIT'
+  | 'ARRIVED_AT_DESTINATION'
+  | 'COMPLETED'
+>;
+
 export const DriverDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const { isOnline, incomingOffer, activeTripId, setIsOnline, setIncomingOffer, setActiveTripId } =
-    useDriverStore();
+  const {
+    isOnline,
+    incomingOffers,
+    activeTripId,
+    setIsOnline,
+    queueIncomingOffer,
+    removeIncomingOffer,
+    clearIncomingOffers,
+    setActiveTripId,
+  } = useDriverStore();
 
   const [tripStep, setTripStep] = useState<number>(0);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
@@ -59,6 +78,7 @@ export const DriverDashboardPage: React.FC = () => {
 
   const [walletBalance, setWalletBalance] = useState<number | null>(user?.walletBalance ?? null);
   const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
+  const hasEligibleWallet = canDriverGoOnline(walletBalance);
 
   useEffect(() => {
     if (typeof driverProfile?.is_online === 'boolean') {
@@ -175,14 +195,18 @@ export const DriverDashboardPage: React.FC = () => {
   // 3. Socket listeners
   useEffect(() => {
     const handleTripOffer = (data: DriverTripOfferPayload) => {
-      setIncomingOffer(data);
+      if (useDriverStore.getState().activeTripId) return;
+      queueIncomingOffer(data);
     };
 
     // Lắng nghe khi cuốc xe bị tài xế khác nhận trước hoặc khách hủy (BUG-014, FEAT-001)
     const handleTripCancelledOffer = (data: { tripId: string }) => {
-      const currentOffer = useDriverStore.getState().incomingOffer;
-      if (currentOffer && (!data.tripId || currentOffer.tripId === data.tripId)) {
-        setIncomingOffer(null);
+      const hasCancelledOffer = useDriverStore
+        .getState()
+        .incomingOffers
+        .some((offer) => offer.tripId === data.tripId);
+      if (hasCancelledOffer) {
+        removeIncomingOffer(data.tripId);
         showToast('Cuốc xe đã được tài xế khác tiếp nhận hoặc đã bị hủy.', 'info');
       }
     };
@@ -198,6 +222,7 @@ export const DriverDashboardPage: React.FC = () => {
         setActiveTrip(null);
         setActiveTripId(null);
         setTripStep(0);
+        socketService.forgetRoom(`trip_${data.tripId}`);
         return;
       }
 
@@ -217,6 +242,7 @@ export const DriverDashboardPage: React.FC = () => {
         setActiveTrip(null);
         setActiveTripId(null);
         setTripStep(0);
+        socketService.forgetRoom(`trip_${data.tripId}`);
         showToast('🎉 Chuyến đi đã hoàn tất thành công! Doanh thu đã được cộng vào ví.', 'success');
         driverService.getWalletDetails().then((wallet) => {
           if (wallet && wallet.balance !== undefined) setWalletBalance(Number(wallet.balance));
@@ -256,12 +282,19 @@ export const DriverDashboardPage: React.FC = () => {
       socketService.off('trip:status_changed', handleTripStatusChanged);
       socketService.off('trip:location_stream', handleLocationStream);
     };
-  }, [setIncomingOffer, setActiveTripId, showToast]);
+  }, [queueIncomingOffer, removeIncomingOffer, setActiveTripId, showToast]);
 
   // Bật / Tắt trực tuyến (Gọi trực tiếp DB PostgreSQL)
   const handleToggleOnline = async () => {
     if (isTogglingOnline) return;
     const nextStatus = !isOnline;
+    if (nextStatus && !hasEligibleWallet) {
+      showToast(
+        `Cần tối thiểu ${formatCurrency(MIN_DRIVER_WALLET_BALANCE)} trong ví để bật nhận cuốc.`,
+        'warning',
+      );
+      return;
+    }
     try {
       setIsTogglingOnline(true);
       await driverService.toggleOnlineStatus(nextStatus);
@@ -284,25 +317,25 @@ export const DriverDashboardPage: React.FC = () => {
       await driverService.acceptTrip(tripId);
       const trip = await tripService.getTripDetails(tripId);
       setActiveTrip(trip);
-      setIncomingOffer(null);
+      clearIncomingOffers();
       setActiveTripId(tripId);
       setTripStep(1);
       socketService.joinRoom(`trip_${tripId}`);
       showToast('Đã nhận chuyến thành công!', 'success');
     } catch (err: unknown) {
       if (isTripAcceptConflict(err)) {
-        setIncomingOffer(null);
+        removeIncomingOffer(tripId);
       }
       showToast(getTripAcceptErrorMessage(err), 'error');
     }
   };
 
-  const handleDeclineOffer = () => {
-    setIncomingOffer(null);
+  const handleDeclineOffer = (tripId: string) => {
+    removeIncomingOffer(tripId);
   };
 
   const updateActiveTripStatus = async (
-    status: DriverSimulationStatus,
+    status: DriverManualTripStatus,
     keepCompletedTrip = false,
   ) => {
     if (!activeTripId) throw new Error('Không có chuyến đi đang hoạt động');
@@ -310,6 +343,7 @@ export const DriverDashboardPage: React.FC = () => {
     await driverService.updateTripStatus(activeTripId, status);
 
     if (status === 'COMPLETED' && !keepCompletedTrip) {
+      socketService.forgetRoom(`trip_${activeTripId}`);
       setActiveTrip(null);
       setActiveTripId(null);
       setTripStep(0);
@@ -326,12 +360,6 @@ export const DriverDashboardPage: React.FC = () => {
       lng: payload.lng,
     });
     socketService.emit('driver:update_location', payload);
-  };
-
-  const handleSimulationCompleted = () => {
-    setActiveTrip(null);
-    setActiveTripId(null);
-    setTripStep(0);
   };
 
   const handleAdvanceDriverStep = async () => {
@@ -412,8 +440,9 @@ export const DriverDashboardPage: React.FC = () => {
           type="button"
           aria-pressed={isOnline}
           aria-busy={isTogglingOnline}
-          disabled={isTogglingOnline}
+          disabled={isTogglingOnline || (!isOnline && !hasEligibleWallet)}
           onClick={handleToggleOnline}
+          aria-describedby="driver-wallet-condition"
           className={`px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 transition-[background-color,box-shadow,opacity] shadow-lg disabled:cursor-not-allowed disabled:opacity-60 ${
             isOnline
               ? 'bg-[#00B14F] hover:bg-[#00843D] text-white shadow-emerald-600/30'
@@ -421,21 +450,29 @@ export const DriverDashboardPage: React.FC = () => {
           }`}
         >
           <Power className="w-5 h-5" />
-          {isOnline ? 'SẴN SÀNG NHẬN CUỐC' : 'BẬT TRỰC TUYẾN'}
+          {isOnline
+            ? 'SẴN SÀNG NHẬN CUỐC'
+            : hasEligibleWallet
+              ? 'BẬT TRỰC TUYẾN'
+              : 'VÍ CHƯA ĐỦ ĐIỀU KIỆN'}
         </button>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Wallet Balance */}
-        <Card className="flex items-center justify-between p-5 bg-gradient-to-br from-emerald-500 to-[#00843D] text-white shadow-lg shadow-emerald-600/20">
+        <Card className={`flex items-center justify-between p-5 bg-gradient-to-br text-white shadow-lg ${hasEligibleWallet ? 'from-emerald-500 to-[#00843D] shadow-emerald-600/20' : 'from-amber-500 to-amber-700 shadow-amber-600/20'}`}>
           <div>
             <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Ví Tài Xế</span>
             <div className="text-2xl font-black tracking-tight mt-1">
               {walletBalance === null ? 'Đang tải…' : formatCurrency(walletBalance)}
             </div>
-            <p className="text-[11px] text-emerald-100 font-medium mt-1">
-              {walletBalance === null ? 'Đang đồng bộ số dư ví' : 'Điều kiện nhận cuốc từ hệ thống'}
+            <p id="driver-wallet-condition" className="mt-1 text-[11px] font-medium text-white/90">
+              {walletBalance === null
+                ? 'Đang đồng bộ số dư ví trước khi bật nhận cuốc'
+                : hasEligibleWallet
+                  ? `Đủ điều kiện nhận cuốc (tối thiểu ${formatCurrency(MIN_DRIVER_WALLET_BALANCE)})`
+                  : `Cần tối thiểu ${formatCurrency(MIN_DRIVER_WALLET_BALANCE)} để nhận cuốc`}
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
@@ -540,9 +577,7 @@ export const DriverDashboardPage: React.FC = () => {
               disabled={isUpdatingTrip}
               isPreparingRoute={isLoadingActiveRoute}
               onLocation={handleSimulatedLocation}
-              onStatus={(status) => updateActiveTripStatus(status, true)}
               onRunningChange={setIsSimulatingTrip}
-              onCompleted={handleSimulationCompleted}
             />
           ) : null}
 
@@ -617,7 +652,7 @@ export const DriverDashboardPage: React.FC = () => {
 
       {/* Incoming Offer Modal */}
       <TripOfferModal
-        offer={incomingOffer}
+        offers={incomingOffers}
         onAccept={handleAcceptOffer}
         onDecline={handleDeclineOffer}
       />

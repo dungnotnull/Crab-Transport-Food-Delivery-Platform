@@ -7,16 +7,24 @@ import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/currency.utils';
 import { formatDistance, formatDuration, POPULAR_DESTINATIONS } from '../../utils/geo.utils';
 import { ServiceType, PaymentMethod, LocationPoint } from '../../types/trip.types';
-import { CreditCard, Banknote, Sparkles, Clock, Compass, Bike, Car, UsersRound } from 'lucide-react';
+import { CreditCard, Banknote, Sparkles, Clock, Compass, Bike, Car, UsersRound, WalletCards } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { canPreviewRoute } from '../../utils/tripRules';
 import type { RoutePreviewData } from '../../types/trip.types';
+import { PAYMENT_METHOD_OPTIONS } from '../../utils/paymentMethods.utils';
+import { LatestRequestController } from '../../utils/latestRequest.utils';
 
 interface BookingPanelProps {
   onStartFindingDriver: () => void;
 }
+
+const PAYMENT_METHOD_ICONS = {
+  CASH: Banknote,
+  CREDIT_CARD: CreditCard,
+  E_WALLET: WalletCards,
+} as const;
 
 export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver }) => {
   const {
@@ -41,6 +49,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocatingGPS, setIsLocatingGPS] = useState(false);
   const routeRequestIdRef = useRef(0);
+  const routeRequestControllerRef = useRef(new LatestRequestController());
 
   // Tự động lấy định vị GPS thực tế của thiết bị người dùng khi khởi động
   useEffect(() => {
@@ -75,6 +84,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
     // Mỗi thay đổi địa chỉ đều vô hiệu hóa request cũ, kể cả khi một đầu mút trở về rỗng.
     const requestId = ++routeRequestIdRef.current;
     if (!pickup || !dropoff || !canPreviewRoute(pickup, dropoff)) {
+      routeRequestControllerRef.current.abort();
       setRoutePreview(null);
       setFaresByType({});
       setIsLoadingRoute(false);
@@ -82,15 +92,16 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
     }
 
     let isMounted = true;
+    const signal = routeRequestControllerRef.current.next();
     setIsLoadingRoute(true);
 
     Promise.all([
-      tripService.previewTrip(pickup, dropoff, 'BIKE', couponCode).catch(() => null),
-      tripService.previewTrip(pickup, dropoff, 'CAR_4', couponCode).catch(() => null),
-      tripService.previewTrip(pickup, dropoff, 'CAR_7', couponCode).catch(() => null),
+      tripService.previewTrip(pickup, dropoff, 'BIKE', couponCode, signal).catch(() => null),
+      tripService.previewTrip(pickup, dropoff, 'CAR_4', couponCode, signal).catch(() => null),
+      tripService.previewTrip(pickup, dropoff, 'CAR_7', couponCode, signal).catch(() => null),
     ])
       .then(([bikeData, car4Data, car7Data]) => {
-        if (isMounted && requestId === routeRequestIdRef.current) {
+        if (isMounted && !signal.aborted && requestId === routeRequestIdRef.current) {
           const map = {
             BIKE: bikeData,
             CAR_4: car4Data,
@@ -105,7 +116,7 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         }
       })
       .catch((err) => {
-        if (isMounted) {
+        if (isMounted && !signal.aborted) {
           showToast(getApiErrorMessage(err, 'Không thể tính lộ trình và cước phí. Vui lòng thử lại.'), 'error');
           if (couponCode) {
             setCouponCode('');
@@ -114,13 +125,14 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
         }
       })
       .finally(() => {
-        if (isMounted && requestId === routeRequestIdRef.current) {
+        if (isMounted && !signal.aborted && requestId === routeRequestIdRef.current) {
           setIsLoadingRoute(false);
         }
       });
 
     return () => {
       isMounted = false;
+      routeRequestControllerRef.current.abort();
     };
   }, [pickup, dropoff, couponCode, setIsLoadingRoute, setRoutePreview, showToast]);
 
@@ -386,49 +398,47 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
       )}
       {/* Payment Method & Coupon */}
       <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPaymentMethod('CASH')}
-            aria-pressed={paymentMethod === 'CASH'}
-            className={`flex h-10 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
-              paymentMethod === 'CASH'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <Banknote className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Tiền mặt</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPaymentMethod('CREDIT_CARD')}
-            aria-pressed={paymentMethod === 'CREDIT_CARD'}
-            className={`flex h-10 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold transition-[background-color,color,box-shadow] ${
-              paymentMethod === 'CREDIT_CARD'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <CreditCard className="w-4 h-4 text-blue-400 shrink-0" />
-            <span>Thẻ</span>
-          </button>
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          {PAYMENT_METHOD_OPTIONS.map((option) => {
+            const PaymentIcon = PAYMENT_METHOD_ICONS[option.value];
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPaymentMethod(option.value)}
+                aria-pressed={paymentMethod === option.value}
+                className={`flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-xs font-bold transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+                  paymentMethod === option.value
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <PaymentIcon className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex min-w-0 items-center gap-1.5">
+          <label htmlFor="booking-coupon" className="sr-only">Mã khuyến mãi</label>
           <input
+            id="booking-coupon"
+            name="coupon_code"
             type="text"
-            placeholder="Mã KM (nếu có)"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Mã KM (nếu có)…"
             value={couponInput}
             onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-            className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 outline-none focus:border-[#00B14F] sm:w-28 sm:flex-none"
+            className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 focus-visible:border-[#00B14F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 sm:w-28 sm:flex-none"
           />
           <button
             type="button"
             onClick={() => setCouponCode(couponInput)}
-            className="flex h-10 shrink-0 whitespace-nowrap items-center gap-1 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-95"
+            className="flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-95"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Áp dụng</span>
           </button>
         </div>

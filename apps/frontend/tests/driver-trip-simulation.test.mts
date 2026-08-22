@@ -34,7 +34,7 @@ test('always includes the active trip id in a simulated driver location event', 
   );
 });
 
-test('plans the complete accepted-trip journey in backend state-machine order', () => {
+test('simulates location only while the driver travels to pickup', () => {
   assert.equal(
     typeof simulationModule.createDriverTripSimulationPlan,
     'function',
@@ -59,30 +59,18 @@ test('plans the complete accepted-trip journey in backend state-machine order', 
     stepsPerLeg: 2,
   });
 
-  assert.deepEqual(
-    plan.filter((action) => action.type === 'STATUS').map((action) => action.status),
-    [
-      'ARRIVED_AT_PICKUP',
-      'IN_TRANSIT',
-      'ARRIVED_AT_DESTINATION',
-      'COMPLETED',
-    ],
-  );
-
   const locations = plan.filter((action) => action.type === 'LOCATION');
-  assert.equal(locations.length, 4);
+  assert.deepEqual(plan.filter((action) => action.type === 'STATUS'), []);
+  assert.equal(locations.length, 2);
+  assert.equal(locations.every((action) => action.phase === 'TO_PICKUP'), true);
   assert.equal(locations.every((action) => action.payload.tripId === 'trip-accepted'), true);
   assert.deepEqual(
     { lat: locations[1].payload.lat, lng: locations[1].payload.lng },
     { lat: pickup.lat, lng: pickup.lng },
   );
-  assert.deepEqual(
-    { lat: locations[3].payload.lat, lng: locations[3].payload.lng },
-    { lat: dropoff.lat, lng: dropoff.lng },
-  );
 });
 
-test('resumes an in-transit simulation without moving back to pickup', () => {
+test('simulates location only while the driver is in transit', () => {
   assert.equal(
     typeof simulationModule.createDriverTripSimulationPlan,
     'function',
@@ -108,10 +96,7 @@ test('resumes an in-transit simulation without moving back to pickup', () => {
     stepsPerLeg: 2,
   });
 
-  assert.deepEqual(
-    plan.filter((action) => action.type === 'STATUS').map((action) => action.status),
-    ['ARRIVED_AT_DESTINATION', 'COMPLETED'],
-  );
+  assert.deepEqual(plan.filter((action) => action.type === 'STATUS'), []);
   assert.equal(
     plan.some((action) => action.type === 'LOCATION' && action.phase === 'TO_PICKUP'),
     false,
@@ -125,6 +110,37 @@ test('resumes an in-transit simulation without moving back to pickup', () => {
       heading: plan.filter((action) => action.type === 'LOCATION')[1].payload.heading,
     },
   );
+});
+
+test('does not simulate vehicle movement in manually controlled statuses', () => {
+  assert.equal(
+    typeof simulationModule.createDriverTripSimulationPlan,
+    'function',
+    'Thiếu bộ lập kế hoạch mô phỏng chuyến đi',
+  );
+
+  const createPlan = simulationModule.createDriverTripSimulationPlan as (input: {
+    tripId: string;
+    status: string;
+    currentLocation: { lat: number; lng: number };
+    pickup: typeof pickup;
+    dropoff: typeof dropoff;
+    stepsPerLeg: number;
+  }) => Array<Record<string, any>>;
+
+  for (const status of ['ARRIVED_AT_PICKUP', 'ARRIVED_AT_DESTINATION', 'COMPLETED']) {
+    assert.deepEqual(
+      createPlan({
+        tripId: `trip-${status}`,
+        status,
+        currentLocation: { lat: 10.79, lng: 106.71 },
+        pickup,
+        dropoff,
+        stepsPerLeg: 2,
+      }),
+      [],
+    );
+  }
 });
 
 test('follows the supplied OSRM geometry instead of cutting across the route', () => {
@@ -158,7 +174,7 @@ test('follows the supplied OSRM geometry instead of cutting across the route', (
   assert.ok(firstLocation.payload.lng < 106.705);
 });
 
-test('runs location and status actions sequentially at the selected speed', async () => {
+test('runs only location actions at the selected speed without changing trip status', async () => {
   assert.equal(
     typeof simulationModule.runDriverTripSimulationPlan,
     'function',
@@ -199,14 +215,9 @@ test('runs location and status actions sequentially at the selected speed', asyn
   });
 
   assert.equal(result, 'COMPLETED');
-  assert.deepEqual(observedLocations, ['trip-runner', 'trip-runner']);
-  assert.deepEqual(observedStatuses, [
-    'ARRIVED_AT_PICKUP',
-    'IN_TRANSIT',
-    'ARRIVED_AT_DESTINATION',
-    'COMPLETED',
-  ]);
-  assert.deepEqual(observedWaits, [600, 900, 600, 450]);
+  assert.deepEqual(observedLocations, ['trip-runner']);
+  assert.deepEqual(observedStatuses, []);
+  assert.deepEqual(observedWaits, [600]);
 });
 
 test('stops before changing trip status after simulation cancellation', async () => {

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeLocationPoint,
+  normalizeRouteGeometry,
   normalizeTrip,
 } from '../src/utils/tripNormalization.utils.ts';
 
@@ -31,5 +32,32 @@ test('rejects a trip with an invalid endpoint', () => {
       dropoff_location: { lat: 10.78, lng: 106.7 },
     }),
     /tọa độ/i,
+  );
+});
+
+test('normalizes route arrays and GeoJSON without changing Leaflet coordinate order', () => {
+  assert.deepEqual(
+    normalizeRouteGeometry([
+      [10.78, 106.69],
+      [10.79, 106.7],
+    ]),
+    [
+      [10.78, 106.69],
+      [10.79, 106.7],
+    ],
+  );
+  assert.deepEqual(
+    normalizeRouteGeometry({ coordinates: [[106.69, 10.78], [106.7, 10.79]] }),
+    [
+      [10.78, 106.69],
+      [10.79, 106.7],
+    ],
+  );
+});
+
+test('rejects a malformed route point instead of replacing it with the pickup', () => {
+  assert.throws(
+    () => normalizeRouteGeometry([[10.78, 106.69], ['bad', null]]),
+    /hình học tuyến đường/i,
   );
 });
