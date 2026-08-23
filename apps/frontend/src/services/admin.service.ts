@@ -15,8 +15,16 @@ export const adminService = {
    * Lấy thống kê tổng quan thực tế từ Backend DB (`GET /api/v1/admin/statistics`)
    */
   async getStatistics(): Promise<AdminStats> {
-    const res = await apiClient.get<ApiResponse<AdminStats>>('/admin/statistics');
-    return res.data.data;
+    const res = await apiClient.get<any>('/admin/statistics');
+    const raw = res.data?.data;
+    const statsData = raw && typeof raw === 'object' && 'data' in raw && raw.data ? raw.data : raw;
+
+    return {
+      totalTrips: Number(statsData?.totalTrips) || 0,
+      totalRevenue: Number(statsData?.totalRevenue) || 0,
+      totalCustomers: Number(statsData?.totalCustomers) || 0,
+      totalDrivers: Number(statsData?.totalDrivers) || 0,
+    };
   },
 
   /**
