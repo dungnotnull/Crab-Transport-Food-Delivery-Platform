@@ -150,6 +150,26 @@ export class TripsService {
     }
   }
 
+  @Cron('*/15 * * * * *') // Run every 15 seconds
+  async handleRetryDispatch() {
+    this.logger.debug('Running cronjob: handleRetryDispatch');
+    
+    // Find trips that are still FINDING_DRIVER
+    const pendingTrips = await this.tripsRepository.find({
+      where: {
+        status: TripStatus.FINDING_DRIVER,
+      },
+    });
+
+    if (pendingTrips.length > 0) {
+      this.logger.log(`Retrying dispatch for ${pendingTrips.length} pending trips...`);
+      for (const trip of pendingTrips) {
+        // Re-trigger the dispatch logic. The handleTripCreated method listens to this event.
+        this.eventEmitter.emit('trip.created', trip);
+      }
+    }
+  }
+
   @Cron('*/30 * * * * *') // Run every 30 seconds
   async handleStaleAcceptedTrips() {
     this.logger.debug('Running cronjob: handleStaleAcceptedTrips (SLA Check)');
