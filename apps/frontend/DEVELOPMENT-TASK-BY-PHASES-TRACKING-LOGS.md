@@ -325,3 +325,15 @@
 - [x] **Verification**
   - `npm test`: 70/70 pass.
   - `npm run build`: pass TypeScript + Vite production build (0 error).
+
+---
+
+## 🚗 Phase 18: Realistic Driver Location Preservation Post-Simulation (BUG-029) - [COMPLETED]
+
+- [x] **Task 18.1: Preserve Arrival Dropoff Location After Simulated Trip**
+  - Tối ưu `DriverDashboardPage.tsx`: Khi hoàn tất cuốc xe mô phỏng (`COMPLETED`), vị trí của tài xế được giữ nguyên tại Điểm trả khách (`dropoff_location`) và đồng bộ lên Database PostgreSQL thay vì bị GPS thiết bị kéo giật ngược về vị trí máy tính ban đầu.
+  - Ngăn `watchPosition` ghi đè tọa độ khi tài xế đã có vị trí mô phỏng/click bản đồ, giúp mô phỏng chân thực giống hệt tài xế Grab thật (đến điểm trả khách và đứng chờ cuốc tiếp theo tại khu vực đó).
+  - Bổ sung nút "🔄 Lấy lại GPS thiết bị" trên giao diện Standby Card để tài xế/tester có thể chủ động đồng bộ lại GPS phần cứng bất cứ lúc nào.
+- [x] **Verification**
+  - `npm test`: 70/70 tests pass.
+  - `npm run build`: pass TypeScript + Vite production build sạch 100%.

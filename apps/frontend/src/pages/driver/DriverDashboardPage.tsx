@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useDriverStore } from '../../stores/driverStore';
 import { driverService } from '../../services/driver.service';
@@ -67,6 +67,7 @@ export const DriverDashboardPage: React.FC = () => {
 
   const [tripStep, setTripStep] = useState<number>(0);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
+  const activeTripRef = useRef<Trip | null>(null);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   const [isUpdatingTrip, setIsUpdatingTrip] = useState(false);
   const [isSimulatingTrip, setIsSimulatingTrip] = useState(false);
@@ -77,8 +78,12 @@ export const DriverDashboardPage: React.FC = () => {
   const driverProfile = user?.driverProfile;
 
   const [walletBalance, setWalletBalance] = useState<number | null>(user?.walletBalance ?? null);
-  const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{ lat: number, lng: number } | null>(null);
   const hasEligibleWallet = canDriverGoOnline(walletBalance);
+
+  useEffect(() => {
+    activeTripRef.current = activeTrip;
+  }, [activeTrip]);
 
   useEffect(() => {
     if (typeof driverProfile?.is_online === 'boolean') {
@@ -154,43 +159,30 @@ export const DriverDashboardPage: React.FC = () => {
     showToast,
   ]);
 
-  // 2. Geolocation tracking & emit
+  // 2. Khởi tạo tọa độ ban đầu của tài xế khi mở trang (không dùng watchPosition liên tục đè vị trí mô phỏng)
   useEffect(() => {
-    // Tạm dừng GPS thật để tránh marker nhảy qua lại giữa hai nguồn tọa độ.
-    if (!shouldSyncLiveDriverLocation(isOnline, isSimulatingTrip)) return;
-
-    const syncLocation = (latitude: number, longitude: number) => {
-      setDriverLocation({ lat: latitude, lng: longitude });
-      // Gateway chỉ phát vị trí sang màn khách khi payload có đúng Trip ID đang hoạt động.
-      if (activeTripId) {
-        socketService.emit(
-          'driver:update_location',
-          createDriverLocationUpdatePayload(activeTripId, {
-            lat: latitude,
-            lng: longitude,
-          }),
-        );
-      }
-      driverService.updateLocation(latitude, longitude).catch(() => {});
-    };
+    if (!isOnline || isSimulatingTrip || driverLocation) return;
 
     if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
+      navigator.geolocation.getCurrentPosition(
         (pos) => {
-          syncLocation(pos.coords.latitude, pos.coords.longitude);
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setDriverLocation(loc);
+          driverService.updateLocation(loc.lat, loc.lng).catch(() => {});
         },
         () => {
-          showToast('Không thể lấy GPS thực tế, hệ thống đã gán vị trí trung tâm để nhận cuốc.', 'info');
-          syncLocation(10.780171, 106.693983);
+          const fallback = { lat: 10.780171, lng: 106.693983 };
+          setDriverLocation(fallback);
+          driverService.updateLocation(fallback.lat, fallback.lng).catch(() => {});
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: false, timeout: 5000 }
       );
-
-      return () => navigator.geolocation.clearWatch(watchId);
     } else {
-      syncLocation(10.780171, 106.693983);
+      const fallback = { lat: 10.780171, lng: 106.693983 };
+      setDriverLocation(fallback);
+      driverService.updateLocation(fallback.lat, fallback.lng).catch(() => {});
     }
-  }, [activeTripId, isOnline, isSimulatingTrip, showToast]);
+  }, [isOnline, isSimulatingTrip, driverLocation]);
 
   // 3. Socket listeners
   useEffect(() => {
@@ -238,6 +230,15 @@ export const DriverDashboardPage: React.FC = () => {
         setTripStep(4);
         showToast('🏁 Đã đến điểm trả!', 'info');
       } else if (data.status === 'COMPLETED') {
+        const currentActiveTrip = activeTripRef.current;
+        if (currentActiveTrip?.dropoff_location) {
+          const finalDropoff = {
+            lat: currentActiveTrip.dropoff_location.lat,
+            lng: currentActiveTrip.dropoff_location.lng,
+          };
+          setDriverLocation(finalDropoff);
+          driverService.updateLocation(finalDropoff.lat, finalDropoff.lng).catch(() => {});
+        }
         setIsSimulatingTrip(false);
         setActiveTrip(null);
         setActiveTripId(null);
@@ -256,7 +257,7 @@ export const DriverDashboardPage: React.FC = () => {
           if (isEventForActiveTrip(useDriverStore.getState().activeTripId, data.tripId)) {
             setActiveTrip(trip);
           }
-        } catch {}
+        } catch { }
       }
     };
 
@@ -275,7 +276,7 @@ export const DriverDashboardPage: React.FC = () => {
     socketService.on('driver:trip_cancelled_offer', handleTripCancelledOffer);
     socketService.on('trip:status_changed', handleTripStatusChanged);
     socketService.on('trip:location_stream', handleLocationStream);
-    
+
     return () => {
       socketService.off('driver:trip_offer', handleTripOffer);
       socketService.off('driver:trip_cancelled_offer', handleTripCancelledOffer);
@@ -343,6 +344,14 @@ export const DriverDashboardPage: React.FC = () => {
     await driverService.updateTripStatus(activeTripId, status);
 
     if (status === 'COMPLETED' && !keepCompletedTrip) {
+      if (activeTrip?.dropoff_location) {
+        const finalDropoff = {
+          lat: activeTrip.dropoff_location.lat,
+          lng: activeTrip.dropoff_location.lng,
+        };
+        setDriverLocation(finalDropoff);
+        driverService.updateLocation(finalDropoff.lat, finalDropoff.lng).catch(() => {});
+      }
       socketService.forgetRoom(`trip_${activeTripId}`);
       setActiveTrip(null);
       setActiveTripId(null);
@@ -360,6 +369,7 @@ export const DriverDashboardPage: React.FC = () => {
       lng: payload.lng,
     });
     socketService.emit('driver:update_location', payload);
+    driverService.updateLocation(payload.lat, payload.lng).catch(() => {});
   };
 
   const handleAdvanceDriverStep = async () => {
@@ -414,9 +424,8 @@ export const DriverDashboardPage: React.FC = () => {
               </div>
             )}
             <span
-              className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white rounded-full ${
-                isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-              }`}
+              className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                }`}
             ></span>
           </div>
 
@@ -443,11 +452,10 @@ export const DriverDashboardPage: React.FC = () => {
           disabled={isTogglingOnline || (!isOnline && !hasEligibleWallet)}
           onClick={handleToggleOnline}
           aria-describedby="driver-wallet-condition"
-          className={`px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 transition-[background-color,box-shadow,opacity] shadow-lg disabled:cursor-not-allowed disabled:opacity-60 ${
-            isOnline
+          className={`px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 transition-[background-color,box-shadow,opacity] shadow-lg disabled:cursor-not-allowed disabled:opacity-60 ${isOnline
               ? 'bg-[#00B14F] hover:bg-[#00843D] text-white shadow-emerald-600/30'
               : 'bg-slate-800 hover:bg-slate-900 text-white shadow-slate-800/30'
-          }`}
+            }`}
         >
           <Power className="w-5 h-5" />
           {isOnline
@@ -507,10 +515,10 @@ export const DriverDashboardPage: React.FC = () => {
                 {driverProfile?.vehicle_type === 'BIKE'
                   ? 'CrabBike'
                   : driverProfile?.vehicle_type === 'CAR_7'
-                  ? 'CrabCar 7 Chỗ'
-                  : driverProfile?.vehicle_type === 'CAR_4'
-                  ? 'CrabCar 4 Chỗ'
-                  : 'Chưa cập nhật'}
+                    ? 'CrabCar 7 Chỗ'
+                    : driverProfile?.vehicle_type === 'CAR_4'
+                      ? 'CrabCar 4 Chỗ'
+                      : 'Chưa cập nhật'}
               </strong>{driverProfile?.color ? ` (${driverProfile.color})` : ''}
             </p>
           </div>
@@ -643,9 +651,33 @@ export const DriverDashboardPage: React.FC = () => {
             />
           </div>
           {isOnline && (
-            <p className="text-[11px] text-slate-500 italic mt-2">
-              💡 <strong>Mẹo kiểm thử:</strong> Bạn có thể <u>click chuột trực tiếp lên bản đồ</u> để di chuyển tài xế đến bất kỳ tọa độ nào bạn muốn test.
-            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-2 mt-2 px-1">
+              <p className="text-[11px] text-slate-500 italic">
+                💡 <strong>Mẹo kiểm thử:</strong> Bạn có thể <u>click chuột trực tiếp lên bản đồ</u> để di chuyển tài xế.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        setDriverLocation(loc);
+                        driverService.updateLocation(loc.lat, loc.lng).catch(() => {});
+                        showToast('Đã đồng bộ lại vị trí theo GPS thật của thiết bị!', 'success');
+                      },
+                      () => {
+                        showToast('Không thể lấy GPS thực tế của thiết bị.', 'warning');
+                      },
+                      { enableHighAccuracy: true, timeout: 5000 }
+                    );
+                  }
+                }}
+                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline shrink-0"
+              >
+                🔄 Lấy lại GPS thiết bị
+              </button>
+            </div>
           )}
         </Card>
       )}
