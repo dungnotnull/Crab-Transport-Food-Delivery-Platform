@@ -337,3 +337,45 @@
 - [x] **Verification**
   - `npm test`: 70/70 tests pass.
   - `npm run build`: pass TypeScript + Vite production build sạch 100%.
+
+---
+
+## 🛑 Phase 19: Driver Reject Trip API Integration & Retry Prevention (FE-026 / BUG-028) - [COMPLETED]
+
+- [x] **Task 19.1: Driver Reject API & Contract Synchronization**
+  - Đồng bộ [API-CONTRACT.md](./API-CONTRACT.md) mục `2.6`: Endpoint `POST /api/v1/trips/:id/reject` với Bearer Token (Role: `DRIVER`).
+  - Thêm phương thức `rejectTrip(tripId: string): Promise<void>` vào `driverService` (`driver.service.ts`) và `tripService` (`trip.service.ts`).
+- [x] **Task 19.2: Rejected Trip State Management & Socket Double-Guarding**
+  - Quản lý mảng `rejectedTripIds` trong `driverStore.ts` và thêm action `rejectIncomingOffer(tripId)`.
+  - Cập nhật `tripOfferQueue.utils.ts` với các helper `isTripRejected`, `recordRejectedTrip`, và lọc chặn không cho cuốc đã từ chối vào `incomingOffers`.
+  - Bổ sung guard trong listener `driver:trip_offer` tại `DriverDashboardPage.tsx` để lập tức bỏ qua nếu nhận socket event của cuốc xe đã bị tài xế từ chối.
+  - Reset sạch `rejectedTripIds: []` khi kết thúc phiên hoặc đổi tài xế (`resetSessionState`).
+- [x] **Task 19.3: Driver Dashboard & Trip Offer Modal UI Polish**
+  - Cập nhật `TripOfferModal.tsx` hỗ trợ `onDecline` bất đồng bộ, hiển thị spinner loading `isLoading={decliningTripId === offer.tripId}` và khóa tương tác chống double-click.
+  - Cập nhật `DriverDashboardPage.tsx` khi từ chối cuốc xe: lập tức xóa offer khỏi modal, gửi API `POST /trips/:id/reject` xuống DB để loại trừ trong backend retry cronjob (10-15s), và hiển thị toast thông báo thân thiện.
+- [x] **Task 19.4: 30s Auto-Dismiss & Auto-Reject Decision Window (FE-027 / FEAT-003)**
+  - Thiết lập hằng số `DRIVER_OFFER_TTL_SECONDS = 30` trong `tripOfferQueue.utils.ts`.
+  - Quản lý `receivedAt` cho từng offer khi đến client, bảo lưu timestamp gốc khi backend gửi retry socket.
+  - Trong `TripOfferModal.tsx`, đếm ngược từ 30s về 0s; khi hết 30s tài xế không thao tác thì tự động kích hoạt auto-reject gọi `driverService.rejectTrip(tripId)`.
+  - Khi danh sách `incomingOffers` rỗng (`offers.length === 0`), modal tự động đóng và trở về màn hình nhận cuốc (Standby Card).
+- [x] **Verification**
+  - `npm test`: 73/73 tests pass (bao gồm các test case cho 30s TTL, countdown, và auto-timeout suppression).
+  - `npm run build`: pass TypeScript type-check và Vite production build sạch 100% (0 error).
+
+---
+
+## ⭐ Phase 20: Dynamic Driver Profile & Rating Synchronization (FE-028 / FEAT-004) - [COMPLETED]
+
+- [x] **Task 20.1: Contract & Service Synchronization for Driver Profile**
+  - Đồng bộ [API-CONTRACT.md](./API-CONTRACT.md) mục `2.12`: Endpoint `GET /api/v1/drivers/profile` và Socket event `driver:rating_updated`.
+  - Thêm phương thức `driverService.getProfile()` vào `driver.service.ts` với cơ chế guard an toàn khi backend chưa triển khai.
+  - Bổ sung `DriverRatingUpdatedPayload` vào `socket.types.ts` và helper `applyDriverRatingUpdate` vào `ratingSubmission.utils.ts`.
+- [x] **Task 20.2: Real-time & Lifecycle Driver Rating Updates in Driver Dashboard**
+  - Cập nhật `DriverDashboardPage.tsx`: Chuyển `driverProfile` thành state động, tự động gọi `driverService.getProfile()` khi mở trang (on mount) và khi cuốc xe hoàn thành (`COMPLETED`) (giống hệt cơ chế ví tiền).
+  - Lắng nghe Socket event `driver:rating_updated` để tự động nhảy điểm số sao ⭐ và hiển thị Toast thông báo tức thì khi khách hàng vừa gửi đánh giá mà không cần tài xế phải tải lại trang hay đăng xuất.
+- [x] **Task 20.3: Admin Overview Driver Table Rating Display**
+  - Thêm cột "Đánh giá ⭐" trong bảng Danh sách Đối tác Tài xế trên `AdminOverviewPage.tsx` để Admin dễ dàng theo dõi chất lượng phục vụ của từng tài xế.
+- [x] **Verification**
+  - `npm test`: 74/74 tests pass 100%.
+  - `npm run build`: pass TypeScript type-check và Vite production build sạch 100% (0 error).
+

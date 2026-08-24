@@ -23,6 +23,7 @@ import {
   Edit3,
   Percent,
   Sparkles,
+  Star,
 } from 'lucide-react';
 
 export const AdminOverviewPage: React.FC = () => {
@@ -444,7 +445,7 @@ export const AdminOverviewPage: React.FC = () => {
                 <th className="py-3 px-4">Email / SĐT</th>
                 <th className="py-3 px-4">Loại xe</th>
                 <th className="py-3 px-4">Biển số</th>
-                <th className="py-3 px-4">Màu sắc</th>
+                <th className="py-3 px-4">Đánh giá ⭐</th>
                 <th className="py-3 px-4">Trạng thái</th>
                 <th className="py-3 px-4 text-right">Thao tác</th>
               </tr>
@@ -487,8 +488,15 @@ export const AdminOverviewPage: React.FC = () => {
                         {drv.driverProfile?.license_plate || 'Chưa cập nhật'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {drv.driverProfile?.color || 'Chưa cập nhật'}
+                    <td className="py-3 px-4 font-bold">
+                      {drv.driverProfile?.average_rating ? (
+                        <span className="inline-flex items-center gap-1 text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          {Number(drv.driverProfile.average_rating).toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">Chưa có</span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <Badge variant={drv.is_active !== false ? 'success' : 'danger'} size="sm">

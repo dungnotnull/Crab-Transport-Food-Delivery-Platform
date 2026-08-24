@@ -21,6 +21,7 @@ import {
 import type { Trip, TripStatus } from '../../types/trip.types';
 import type {
   DriverLocationUpdatePayload,
+  DriverRatingUpdatedPayload,
   DriverTripOfferPayload,
   TripLocationStreamPayload,
   TripStatusChangedPayload,
@@ -61,6 +62,7 @@ export const DriverDashboardPage: React.FC = () => {
     setIsOnline,
     queueIncomingOffer,
     removeIncomingOffer,
+    rejectIncomingOffer,
     clearIncomingOffers,
     setActiveTripId,
   } = useDriverStore();
@@ -75,11 +77,17 @@ export const DriverDashboardPage: React.FC = () => {
   const [isLoadingActiveRoute, setIsLoadingActiveRoute] = useState(false);
   const { showToast } = useToast();
 
-  const driverProfile = user?.driverProfile;
+  const [driverProfile, setDriverProfile] = useState<any>(user?.driverProfile ?? null);
 
   const [walletBalance, setWalletBalance] = useState<number | null>(user?.walletBalance ?? null);
   const [driverLocation, setDriverLocation] = useState<{ lat: number, lng: number } | null>(null);
   const hasEligibleWallet = canDriverGoOnline(walletBalance);
+
+  useEffect(() => {
+    if (user?.driverProfile) {
+      setDriverProfile(user.driverProfile);
+    }
+  }, [user?.driverProfile]);
 
   useEffect(() => {
     activeTripRef.current = activeTrip;
@@ -91,8 +99,15 @@ export const DriverDashboardPage: React.FC = () => {
     }
   }, [driverProfile?.is_online, setIsOnline]);
 
-  // 1. Fetch real wallet & restore active trip on mount
+  // 1. Fetch real wallet, dynamic driver profile & restore active trip on mount
   useEffect(() => {
+    driverService.getProfile().then((profile) => {
+      if (profile) {
+        setDriverProfile(profile);
+        useAuthStore.getState().updateUser({ driverProfile: profile });
+      }
+    }).catch(() => {});
+
     driverService.getWalletDetails().then((wallet) => {
       if (wallet && wallet.balance !== undefined) {
         setWalletBalance(Number(wallet.balance));
@@ -187,7 +202,8 @@ export const DriverDashboardPage: React.FC = () => {
   // 3. Socket listeners
   useEffect(() => {
     const handleTripOffer = (data: DriverTripOfferPayload) => {
-      if (useDriverStore.getState().activeTripId) return;
+      const state = useDriverStore.getState();
+      if (state.activeTripId || state.rejectedTripIds.includes(data.tripId)) return;
       queueIncomingOffer(data);
     };
 
@@ -248,6 +264,12 @@ export const DriverDashboardPage: React.FC = () => {
         driverService.getWalletDetails().then((wallet) => {
           if (wallet && wallet.balance !== undefined) setWalletBalance(Number(wallet.balance));
         }).catch(() => {});
+        driverService.getProfile().then((profile) => {
+          if (profile) {
+            setDriverProfile(profile);
+            useAuthStore.getState().updateUser({ driverProfile: profile });
+          }
+        }).catch(() => {});
         return;
       }
 
@@ -258,6 +280,23 @@ export const DriverDashboardPage: React.FC = () => {
             setActiveTrip(trip);
           }
         } catch { }
+      }
+    };
+
+    // Lắng nghe cập nhật điểm đánh giá trung bình theo thời gian thực khi khách gửi review
+    const handleRatingUpdated = (data: DriverRatingUpdatedPayload) => {
+      if (typeof data?.average_rating === 'number') {
+        setDriverProfile((prev: any) => prev ? { ...prev, average_rating: data.average_rating } : prev);
+        useAuthStore.getState().updateUser({
+          driverProfile: {
+            ...(useAuthStore.getState().user?.driverProfile || {}),
+            average_rating: data.average_rating,
+          } as any,
+        });
+        showToast(
+          `⭐ Bạn vừa nhận được đánh giá ${data.rating ? data.rating + ' sao' : 'mới'}! Điểm đánh giá hiện tại: ${Number(data.average_rating).toFixed(1)} ⭐`,
+          'success',
+        );
       }
     };
 
@@ -275,12 +314,14 @@ export const DriverDashboardPage: React.FC = () => {
     socketService.on('driver:trip_offer', handleTripOffer);
     socketService.on('driver:trip_cancelled_offer', handleTripCancelledOffer);
     socketService.on('trip:status_changed', handleTripStatusChanged);
+    socketService.on('driver:rating_updated', handleRatingUpdated);
     socketService.on('trip:location_stream', handleLocationStream);
 
     return () => {
       socketService.off('driver:trip_offer', handleTripOffer);
       socketService.off('driver:trip_cancelled_offer', handleTripCancelledOffer);
       socketService.off('trip:status_changed', handleTripStatusChanged);
+      socketService.off('driver:rating_updated', handleRatingUpdated);
       socketService.off('trip:location_stream', handleLocationStream);
     };
   }, [queueIncomingOffer, removeIncomingOffer, setActiveTripId, showToast]);
@@ -331,8 +372,17 @@ export const DriverDashboardPage: React.FC = () => {
     }
   };
 
-  const handleDeclineOffer = (tripId: string) => {
-    removeIncomingOffer(tripId);
+  const handleDeclineOffer = async (tripId: string) => {
+    // 1. Cập nhật Store loại bỏ offer và đưa vào danh sách đã từ chối
+    rejectIncomingOffer(tripId);
+    showToast('Đã từ chối cuốc xe.', 'info');
+
+    // 2. Gửi API POST /api/v1/trips/:id/reject để Backend ghi nhận vào DB và loại trừ trong retry cronjob
+    try {
+      await driverService.rejectTrip(tripId);
+    } catch {
+      // Bỏ qua lỗi nếu cuốc đã được xử lý hoặc kết thúc
+    }
   };
 
   const updateActiveTripStatus = async (
@@ -356,6 +406,15 @@ export const DriverDashboardPage: React.FC = () => {
       setActiveTrip(null);
       setActiveTripId(null);
       setTripStep(0);
+      driverService.getWalletDetails().then((wallet) => {
+        if (wallet && wallet.balance !== undefined) setWalletBalance(Number(wallet.balance));
+      }).catch(() => {});
+      driverService.getProfile().then((profile) => {
+        if (profile) {
+          setDriverProfile(profile);
+          useAuthStore.getState().updateUser({ driverProfile: profile });
+        }
+      }).catch(() => {});
       return;
     }
 

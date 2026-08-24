@@ -31,4 +31,11 @@ export interface DriverTripOfferPayload {
   distance?: number;
   duration?: number;
   expiredAt: string;
+  receivedAt?: number;
+}
+
+export interface DriverRatingUpdatedPayload {
+  average_rating: number;
+  tripId?: string;
+  rating?: number;
 }

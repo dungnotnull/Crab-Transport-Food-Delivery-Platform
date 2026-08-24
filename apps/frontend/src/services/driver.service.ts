@@ -25,6 +25,14 @@ export const driverService = {
   },
 
   /**
+   * Từ chối cuốc xe trong DB (`POST /api/v1/trips/:id/reject`)
+   * Ghi nhận tài xế đã từ chối để hệ thống tìm tài xế khác và không phát lại cuốc này cho tài xế
+   */
+  async rejectTrip(tripId: string): Promise<void> {
+    await apiClient.post(`/trips/${tripId}/reject`);
+  },
+
+  /**
    * Cập nhật trạng thái chuyến đi trong DB (`PATCH /api/v1/trips/:id/status`)
    */
   async updateTripStatus(tripId: string, status: string): Promise<any> {
@@ -45,6 +53,14 @@ export const driverService = {
    */
   async getWalletDetails(): Promise<any> {
     const res = await apiClient.get<ApiResponse<any>>('/wallets/me');
+    return res.data.data;
+  },
+
+  /**
+   * Lấy thông tin hồ sơ và rating cập nhật mới nhất của tài xế (`GET /api/v1/drivers/profile`)
+   */
+  async getProfile(): Promise<any> {
+    const res = await apiClient.get<ApiResponse<any>>('/drivers/profile');
     return res.data.data;
   }
 };

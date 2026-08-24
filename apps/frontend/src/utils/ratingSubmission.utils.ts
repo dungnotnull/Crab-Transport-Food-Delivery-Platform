@@ -26,3 +26,16 @@ export async function submitTripRating({
   }
 }
 
+/** Cập nhật điểm đánh giá trung bình real-time cho hồ sơ tài xế */
+export function applyDriverRatingUpdate<T extends { average_rating?: number }>(
+  currentProfile: T | null | undefined,
+  newAverageRating: number,
+): T | null {
+  if (!Number.isFinite(newAverageRating) || newAverageRating < 1 || newAverageRating > 5) {
+    return currentProfile ?? null;
+  }
+  return {
+    ...((currentProfile || {}) as T),
+    average_rating: Number(newAverageRating.toFixed(2)),
+  };
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { submitTripRating } from '../src/utils/ratingSubmission.utils.ts';
+import { submitTripRating, applyDriverRatingUpdate } from '../src/utils/ratingSubmission.utils.ts';
 
 test('closes the rating flow only after the API records the review', async () => {
   const calls: Array<[string, number, string]> = [];
@@ -53,3 +53,23 @@ test('keeps the rating flow open when the API rejects the review', async () => {
   assert.equal(receivedError, apiError);
 });
 
+test('correctly applies dynamic driver rating update from socket event or fresh API data', () => {
+  const initialProfile = {
+    license_plate: '59A-12345',
+    average_rating: 4.5,
+  };
+
+  const updated = applyDriverRatingUpdate(initialProfile, 4.8);
+  assert.equal(updated?.average_rating, 4.8);
+  assert.equal(updated?.license_plate, '59A-12345');
+
+  const updatedFromNull = applyDriverRatingUpdate(null, 5.0);
+  assert.equal(updatedFromNull?.average_rating, 5.0);
+
+  // Invalid rating values should not corrupt state
+  const invalidLow = applyDriverRatingUpdate(initialProfile, 0.5);
+  assert.equal(invalidLow?.average_rating, 4.5);
+
+  const invalidHigh = applyDriverRatingUpdate(initialProfile, 6.0);
+  assert.equal(invalidHigh?.average_rating, 4.5);
+});

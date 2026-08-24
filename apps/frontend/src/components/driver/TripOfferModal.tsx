@@ -11,16 +11,17 @@ import { SingleFlightGate } from '../../utils/tripRules';
 interface TripOfferModalProps {
   offers: DriverTripOfferPayload[];
   onAccept: (tripId: string) => Promise<void> | void;
-  onDecline: (tripId: string) => void;
+  onDecline: (tripId: string) => Promise<void> | void;
 }
 
 export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept, onDecline }) => {
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [acceptingTripId, setAcceptingTripId] = useState<string | null>(null);
+  const [decliningTripId, setDecliningTripId] = useState<string | null>(null);
   const acceptGateRef = useRef(new SingleFlightGate());
-  const clockSkewMapRef = useRef(new Map<string, number>());
   const previousExpiryMapRef = useRef(new Map<string, string>());
   const redispatchMapRef = useRef(new Map<string, boolean>());
+  const timedOutTripIdsRef = useRef(new Set<string>());
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = offers.length > 0;
 
@@ -46,14 +47,25 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
     return () => clearInterval(timer);
   }, []);
 
+  // Tự động kích hoạt từ chối (Auto-Reject 30s) khi cuốc xe hết thời gian chờ
   useEffect(() => {
-    // Dọn dẹp map skew khi offer không còn trong danh sách
+    offers.forEach((offer) => {
+      const secondsLeft = getRemainingOfferSeconds(offer, currentTimeMs);
+      if (secondsLeft <= 0 && !timedOutTripIdsRef.current.has(offer.tripId)) {
+        timedOutTripIdsRef.current.add(offer.tripId);
+        void onDecline(offer.tripId);
+      }
+    });
+  }, [currentTimeMs, offers, onDecline]);
+
+  useEffect(() => {
+    // Dọn dẹp cache trạng thái khi offer không còn trong danh sách
     const currentTripIds = new Set(offers.map((o) => o.tripId));
-    for (const key of clockSkewMapRef.current.keys()) {
+    for (const key of previousExpiryMapRef.current.keys()) {
       if (!currentTripIds.has(key)) {
-        clockSkewMapRef.current.delete(key);
         previousExpiryMapRef.current.delete(key);
         redispatchMapRef.current.delete(key);
+        timedOutTripIdsRef.current.delete(key);
       }
     }
 
@@ -62,24 +74,15 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
       if (prevExpiry && prevExpiry !== offer.expiredAt) {
         // Offer được backend retry phát lại với expiredAt mới
         redispatchMapRef.current.set(offer.tripId, true);
-        clockSkewMapRef.current.delete(offer.tripId);
       }
       previousExpiryMapRef.current.set(offer.tripId, offer.expiredAt);
-
-      if (!clockSkewMapRef.current.has(offer.tripId)) {
-        const serverCreatedAtMs = Date.parse(offer.expiredAt) - 15000;
-        let skew = Date.now() - serverCreatedAtMs;
-        if (!Number.isFinite(skew) || Math.abs(skew) > 86400000) {
-          skew = 0;
-        }
-        clockSkewMapRef.current.set(offer.tripId, skew);
-      }
     });
   }, [offers]);
 
   if (!isOpen) return null;
 
   const handleAcceptTrip = async (tripId: string) => {
+    if (decliningTripId !== null) return;
     await acceptGateRef.current.run(async () => {
       setAcceptingTripId(tripId);
       try {
@@ -88,6 +91,16 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
         setAcceptingTripId(null);
       }
     });
+  };
+
+  const handleDeclineTrip = async (tripId: string) => {
+    if (acceptingTripId !== null || decliningTripId !== null) return;
+    setDecliningTripId(tripId);
+    try {
+      await onDecline(tripId);
+    } finally {
+      setDecliningTripId(null);
+    }
   };
 
   return (
@@ -122,21 +135,15 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
 
         <div className="flex max-h-[min(64dvh,38rem)] flex-col gap-3 overflow-y-auto pr-1">
           {offers.map((offer) => {
-            const skew = clockSkewMapRef.current.get(offer.tripId) || 0;
-            const adjustedCurrentTimeMs = currentTimeMs - skew;
-            const secondsLeft = getRemainingOfferSeconds(offer.expiredAt, adjustedCurrentTimeMs);
+            const secondsLeft = getRemainingOfferSeconds(offer, currentTimeMs);
             const isAccepting = acceptingTripId === offer.tripId;
+            const isDeclining = decliningTripId === offer.tripId;
             const isRedispatched = redispatchMapRef.current.get(offer.tripId) ?? false;
-            const isWaitingRedispatch = secondsLeft === 0;
 
             return (
               <article
                 key={offer.tripId}
-                className={`rounded-2xl border p-4 transition-all ${
-                  isWaitingRedispatch
-                    ? 'border-amber-200 bg-amber-50/50'
-                    : 'border-slate-200 bg-slate-50 hover:border-emerald-300'
-                }`}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-emerald-300"
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
@@ -159,18 +166,12 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
                   <div
                     aria-live="polite"
                     className={`rounded-xl px-2.5 py-1 text-xs font-black flex items-center gap-1 shadow-2xs ${
-                      isWaitingRedispatch
-                        ? 'bg-amber-100 text-amber-800'
-                        : secondsLeft <= 5
+                      secondsLeft <= 5
                         ? 'bg-red-50 text-red-600 animate-pulse'
                         : 'bg-white text-slate-700'
                     }`}
                   >
-                    {isWaitingRedispatch ? (
-                      <span>Đang quét lại…</span>
-                    ) : (
-                      <span>{secondsLeft}s</span>
-                    )}
+                    <span>{secondsLeft}s</span>
                   </div>
                 </div>
 
@@ -200,8 +201,9 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
                   <Button
                     variant="outline"
                     size="md"
-                    onClick={() => onDecline(offer.tripId)}
-                    disabled={acceptingTripId !== null}
+                    isLoading={isDeclining}
+                    disabled={acceptingTripId !== null || decliningTripId !== null}
+                    onClick={() => void handleDeclineTrip(offer.tripId)}
                     className="font-bold text-slate-600 hover:bg-white"
                   >
                     Từ chối
@@ -210,7 +212,7 @@ export const TripOfferModal: React.FC<TripOfferModalProps> = ({ offers, onAccept
                     variant="primary"
                     size="md"
                     isLoading={isAccepting}
-                    disabled={acceptingTripId !== null}
+                    disabled={acceptingTripId !== null || decliningTripId !== null}
                     onClick={() => void handleAcceptTrip(offer.tripId)}
                     className="font-extrabold shadow-md shadow-emerald-600/20"
                   >

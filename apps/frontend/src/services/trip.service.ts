@@ -93,6 +93,13 @@ export const tripService = {
   },
 
   /**
+   * Tài xế từ chối cuốc xe trong DB (`POST /api/v1/trips/:id/reject`)
+   */
+  async rejectTrip(tripId: string): Promise<void> {
+    await apiClient.post(`/trips/${tripId}/reject`);
+  },
+
+  /**
    * Đánh giá cuốc xe trong DB (`POST /api/v1/trips/:id/rating`)
    */
   async rateTrip(tripId: string, rating: number, feedback?: string): Promise<void> {
