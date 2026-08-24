@@ -168,6 +168,40 @@ Mọi API trả về đều tuân thủ cấu trúc sau:
   - Bật/Tắt Thời tiết mưa bão (Surge +50%) `{ "isRaining": true }`.
 - **Headers cho các API Admin**: `Authorization: Bearer <token>` (Yêu cầu role `SYSTEM_ADMIN` hoặc `ADMIN`).
 
+### 2.12. Quản lý Khuyến mãi / Coupons (Dành cho Admin & Customer)
+- **POST** `/api/v1/coupons`
+  - Tạo mới coupon (Admin / System Admin).
+  - Payload:
+    ```json
+    {
+      "code": "SUMMER2026",
+      "discount_type": "PERCENTAGE", // "PERCENTAGE" hoặc "FIXED_AMOUNT"
+      "discount_value": 20,          // 20% hoặc số tiền cố định (VND)
+      "min_trip_value": 30000,       // Giá trị chuyến đi tối thiểu (VND)
+      "max_discount": 25000,         // Mức giảm tối đa (VND, dùng cho PERCENTAGE)
+      "usage_limit": 500,            // Số lượt dùng tối đa
+      "valid_from": "2026-08-01T00:00:00.000Z", // (Tùy chọn, mặc định: thời điểm tạo)
+      "valid_until": "2026-12-31T23:59:59.000Z",
+      "is_active": true
+    }
+    ```
+- **GET** `/api/v1/coupons`
+  - Lấy danh sách toàn bộ coupon (Admin / System Admin).
+- **GET** `/api/v1/coupons/active`
+  - Lấy danh sách coupon đang hoạt động và còn hạn sử dụng (Customer / Admin).
+- **POST** `/api/v1/coupons/validate`
+  - Kiểm tra tính hợp lệ và tính số tiền giảm giá của coupon trước khi đặt xe (Customer / Admin).
+  - Payload: `{ "code": "WELCOME10K", "originalFare": 50000 }`
+  - Response `data`: `{ "discountAmount": 10000, "finalFare": 40000, "coupon": { ... } }`
+- **GET** `/api/v1/coupons/:id`
+  - Lấy chi tiết coupon theo ID (Admin / System Admin).
+- **PATCH** `/api/v1/coupons/:id`
+  - Cập nhật thông tin coupon (Admin / System Admin).
+- **PATCH** `/api/v1/coupons/:id/toggle-active`
+  - Bật / tắt kích hoạt coupon nhanh (Admin / System Admin). Payload (tùy chọn): `{ "is_active": false }`.
+- **DELETE** `/api/v1/coupons/:id`
+  - Xóa coupon (Admin / System Admin).
+
 ---
 
 ## 3. Websocket Events (Socket.io)

@@ -124,6 +124,6 @@
 
 ## Phase 10: Demo Enhancements & Bug Fixes
 - [ ] **Bug: Frontend Login Response (Frontend)**
-  - Ghi nh?n l?i: Màn hình DriverDashboard không hi?n th? dúng thông tin xe và hình ?nh xe.
-  - Nguyên nhân: Frontend thi?u component <img /> hi?n th? vehicle_image, và do Backend API Login hi?n t?i chua tr? v? d?y d? data User + DriverProfile nên Frontend ph?i dùng mock data.
-  - Yêu c?u x? lý Frontend: Thêm <img /> vào Dashboard và dùng d? li?u d?ng t? authStore thay vì mock data.
+  - Ghi nh?n l?i: Mï¿½n hï¿½nh DriverDashboard khï¿½ng hi?n th? dï¿½ng thï¿½ng tin xe vï¿½ hï¿½nh ?nh xe.
+  - Nguyï¿½n nhï¿½n: Frontend thi?u component <img /> hi?n th? vehicle_image, vï¿½ do Backend API Login hi?n t?i chua tr? v? d?y d? data User + DriverProfile nï¿½n Frontend ph?i dï¿½ng mock data.
+  - Yï¿½u c?u x? lï¿½ Frontend: Thï¿½m <img /> vï¿½o Dashboard vï¿½ dï¿½ng d? li?u d?ng t? authStore thay vï¿½ mock data.
