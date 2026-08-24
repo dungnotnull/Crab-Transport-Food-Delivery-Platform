@@ -1,33 +1,61 @@
 import React, { useEffect, useState } from 'react';
 import { adminService } from '../../services/admin.service';
+import { couponService } from '../../services/coupon.service';
 import { User } from '../../types/user.types';
+import type { Coupon, CreateCouponDto, UpdateCouponDto } from '../../types/coupon.types';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
+import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../utils/currency.utils';
 import { useToast } from '../../components/common/Toast';
-import { Shield, Users, Car, CloudRain, Star, DollarSign, Activity, RefreshCw, UserRound } from 'lucide-react';
+import { CouponModal } from '../../components/admin/CouponModal';
+import {
+  Users,
+  Car,
+  CloudRain,
+  DollarSign,
+  Activity,
+  RefreshCw,
+  UserRound,
+  Tag,
+  Plus,
+  Trash2,
+  Edit3,
+  Percent,
+  Sparkles,
+} from 'lucide-react';
 
 export const AdminOverviewPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [customers, setCustomers] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isRaining, setIsRaining] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isWeatherUpdating, setIsWeatherUpdating] = useState(false);
+
+  // Coupon modal states
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
+  const [deletingCouponId, setDeletingCouponId] = useState<string | null>(null);
+
   const { showToast } = useToast();
 
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [statData, custList, drvList, weatherStatus] = await Promise.all([
+      const [statData, custList, drvList, couponList, weatherStatus] = await Promise.all([
         adminService.getStatistics().catch(() => null),
-        adminService.getCustomers(),
-        adminService.getDrivers(),
+        adminService.getCustomers().catch(() => []),
+        adminService.getDrivers().catch(() => []),
+        couponService.getAllCoupons().catch(() => []),
         adminService.getWeatherStatus().catch(() => null),
       ]);
       if (statData) setStats(statData);
       setCustomers(custList || []);
       setDrivers(drvList || []);
+      setCoupons(couponList || []);
       if (weatherStatus !== null) setIsRaining(weatherStatus);
     } catch (err: any) {
       showToast('Lỗi tải dữ liệu từ database!', 'error');
@@ -79,11 +107,75 @@ export const AdminOverviewPage: React.FC = () => {
     }
   };
 
+  // Coupon handlers
+  const handleOpenCreateCoupon = () => {
+    setEditingCoupon(null);
+    setIsCouponModalOpen(true);
+  };
+
+  const handleOpenEditCoupon = (coupon: Coupon) => {
+    setEditingCoupon(coupon);
+    setIsCouponModalOpen(true);
+  };
+
+  const handleSubmitCoupon = async (payload: CreateCouponDto | UpdateCouponDto) => {
+    try {
+      setIsSubmittingCoupon(true);
+      if (editingCoupon) {
+        const updated = await couponService.updateCoupon(editingCoupon.id, payload);
+        setCoupons((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        showToast(`Đã cập nhật thành công coupon ${updated.code}!`, 'success');
+      } else {
+        const created = await couponService.createCoupon(payload as CreateCouponDto);
+        setCoupons((prev) => [created, ...prev]);
+        showToast(`Đã tạo thành công mã giảm giá ${created.code}!`, 'success');
+      }
+      setIsCouponModalOpen(false);
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Không thể lưu coupon. Vui lòng thử lại.', 'error');
+      throw err;
+    } finally {
+      setIsSubmittingCoupon(false);
+    }
+  };
+
+  const handleToggleCouponActive = async (coupon: Coupon) => {
+    const nextStatus = !coupon.is_active;
+    try {
+      const updated = await couponService.toggleActiveCoupon(coupon.id, nextStatus);
+      setCoupons((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      showToast(
+        `Đã ${nextStatus ? 'kích hoạt' : 'tạm khóa'} mã khuyến mãi ${coupon.code}`,
+        nextStatus ? 'success' : 'info'
+      );
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Lỗi cập nhật trạng thái coupon', 'error');
+    }
+  };
+
+  const handleDeleteCoupon = async (coupon: Coupon) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn coupon '${coupon.code}'?`)) {
+      return;
+    }
+    try {
+      setDeletingCouponId(coupon.id);
+      await couponService.deleteCoupon(coupon.id);
+      setCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
+      showToast(`Đã xóa thành công mã khuyến mãi ${coupon.code}`, 'success');
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Không thể xóa coupon', 'error');
+    } finally {
+      setDeletingCouponId(null);
+    }
+  };
+
   // Tính toán số liệu thực tế từ Database
   const totalCustomers = customers.length;
   const activeCustomers = customers.filter((c) => c.is_active !== false).length;
   const totalDrivers = drivers.length;
   const onlineDrivers = drivers.filter((d) => d.driverProfile?.is_online).length;
+  const totalCoupons = coupons.length;
+  const activeCoupons = coupons.filter((c) => c.is_active).length;
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 flex flex-col gap-6">
@@ -95,7 +187,7 @@ export const AdminOverviewPage: React.FC = () => {
             <Badge variant="info" size="sm">Admin Portal</Badge>
           </div>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Dữ liệu trực tiếp thời gian thực từ PostgreSQL Database
+            Dữ liệu trực tiếp thời gian thực từ PostgreSQL Database & NestJS Backend
           </p>
         </div>
 
@@ -132,11 +224,11 @@ export const AdminOverviewPage: React.FC = () => {
       </div>
 
       {/* Metric Cards Row (Dữ liệu tính từ DB thật) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Customers */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng khách hàng (DB)</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Khách hàng</span>
             <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
               {stats?.totalCustomers ?? totalCustomers}
             </div>
@@ -150,7 +242,7 @@ export const AdminOverviewPage: React.FC = () => {
         {/* Total Drivers */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng tài xế (DB)</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tài xế</span>
             <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
               {stats?.totalDrivers ?? totalDrivers}
             </div>
@@ -164,7 +256,7 @@ export const AdminOverviewPage: React.FC = () => {
         {/* Total Trips */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng chuyến xe (DB)</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng chuyến xe</span>
             <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
               {stats?.totalTrips ?? 0}
             </div>
@@ -178,19 +270,158 @@ export const AdminOverviewPage: React.FC = () => {
         {/* Total Revenue */}
         <Card className="flex items-center justify-between p-5">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng doanh thu (GMV)</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Doanh thu GMV</span>
             <div className="text-2xl font-black text-[#00B14F] tracking-tight mt-1">
               {stats?.totalRevenue ? formatCurrency(stats.totalRevenue) : '0 ₫'}
             </div>
             <p className="text-[11px] text-emerald-700 font-bold mt-1">
-              {isRaining === null ? 'Chưa đồng bộ trạng thái giá' : isRaining ? 'Đang áp dụng Surge 1.5x' : 'Giá cước tiêu chuẩn'}
+              {isRaining === null ? 'Chưa đồng bộ' : isRaining ? 'Surge 1.5x' : 'Giá tiêu chuẩn'}
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-[#00B14F]">
             <DollarSign className="w-6 h-6" />
           </div>
         </Card>
+
+        {/* Total Coupons */}
+        <Card className="flex items-center justify-between p-5">
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Khuyến mãi</span>
+            <div className="text-2xl font-black text-orange-600 tracking-tight mt-1">
+              {totalCoupons}
+            </div>
+            <p className="text-[11px] text-emerald-600 font-bold mt-1">{activeCoupons} đang kích hoạt</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600">
+            <Tag className="w-6 h-6" />
+          </div>
+        </Card>
       </div>
+
+      {/* Coupon Management Table (Admin Feature - PostGIS & Backend Coupons) */}
+      <Card className="p-6 flex flex-col gap-4 border-2 border-orange-200/80 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-orange-500" />
+                Quản Lý Mã Khuyến Mãi & Coupons (PostgreSQL `coupons`)
+              </h3>
+              <Badge variant="warning" size="sm">{coupons.length} Mã</Badge>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Tạo và quản lý các voucher giảm giá chuyến đi cho khách hàng
+            </p>
+          </div>
+
+          <Button
+            size="md"
+            variant="primary"
+            onClick={handleOpenCreateCoupon}
+            className="font-black bg-[#FF5B00] hover:bg-[#E05000] border-transparent shadow-md text-xs flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Thêm Mã Khuyến Mãi</span>
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-200/80">
+              <tr>
+                <th className="py-3 px-4">Mã Coupon</th>
+                <th className="py-3 px-4">Loại & Mức Giảm</th>
+                <th className="py-3 px-4">Đơn Tối Thiểu</th>
+                <th className="py-3 px-4">Giảm Tối Đa</th>
+                <th className="py-3 px-4">Đã Dùng / Giới Hạn</th>
+                <th className="py-3 px-4">Hạn Sử Dụng</th>
+                <th className="py-3 px-4">Trạng Thái</th>
+                <th className="py-3 px-4 text-right">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+              {coupons.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
+                    Chưa có mã khuyến mãi nào trong cơ sở dữ liệu. Hãy tạo mã đầu tiên!
+                  </td>
+                </tr>
+              ) : (
+                coupons.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4">
+                      <span className="font-black text-slate-900 bg-orange-50 border border-orange-200 text-orange-700 px-2.5 py-1 rounded-lg tracking-wider">
+                        {item.code}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-bold">
+                      {item.discount_type === 'PERCENTAGE' ? (
+                        <span className="text-emerald-700 flex items-center gap-1">
+                          <Percent className="w-3.5 h-3.5" /> Giảm {item.discount_value}%
+                        </span>
+                      ) : (
+                        <span className="text-blue-700">
+                          Giảm {formatCurrency(item.discount_value)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {item.min_trip_value > 0 ? formatCurrency(item.min_trip_value) : '0 ₫'}
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {item.max_discount ? formatCurrency(item.max_discount) : 'Không giới hạn'}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="font-bold text-slate-800">{item.used_count}</span>
+                      <span className="text-slate-400"> / {item.usage_limit}</span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-500">
+                      {new Date(item.valid_until).toLocaleDateString('vi-VN')}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge variant={item.is_active ? 'success' : 'neutral'} size="sm">
+                        {item.is_active ? 'Đang kích hoạt' : 'Tạm khóa'}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCouponActive(item)}
+                          className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                            item.is_active
+                              ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                              : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {item.is_active ? 'Khóa' : 'Bật'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditCoupon(item)}
+                          className="text-[11px] font-bold px-2 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 flex items-center gap-1"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Sửa</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingCouponId === item.id}
+                          onClick={() => handleDeleteCoupon(item)}
+                          className="text-[11px] font-bold px-2 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Xóa</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {/* Driver Management Table (Dữ liệu trực tiếp từ PostgreSQL) */}
       <Card className="p-6 flex flex-col gap-4">
@@ -361,6 +592,15 @@ export const AdminOverviewPage: React.FC = () => {
           </table>
         </div>
       </Card>
+
+      {/* Coupon Form Modal */}
+      <CouponModal
+        isOpen={isCouponModalOpen}
+        onClose={() => setIsCouponModalOpen(false)}
+        onSubmit={handleSubmitCoupon}
+        coupon={editingCoupon}
+        isSubmitting={isSubmittingCoupon}
+      />
     </div>
   );
 };

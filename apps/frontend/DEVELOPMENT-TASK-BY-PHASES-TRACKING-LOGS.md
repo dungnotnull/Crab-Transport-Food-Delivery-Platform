@@ -306,3 +306,22 @@
   - `npm.cmd test`: 64/64 pass, gồm tile-error fallback, deferred Leaflet tile ready, active-trip null hydration và session reset ordering.
   - `npm.cmd run build`: pass TypeScript + Vite production build; main entry 248,41 kB.
   - Browser local smoke với OSM DNS không phân giải: `Bản đồ offline` hiển thị canvas sơ đồ cục bộ; User giả lập có `activeTrip: null` thấy BookingPanel, không thấy TripBottomSheet cũ.
+
+---
+
+## 🎟️ Phase 17: Driver Multi-Offer Queue & Admin Coupon Management - [COMPLETED]
+
+- [x] **Task 17.1: Driver Multi-Offer Queue & Retry Dispatch Resilience**
+  - Cập nhật `TripOfferModal` và `tripOfferQueue.utils.ts` để không tự động hủy offer khi hết 15s đếm ngược.
+  - Hiển thị danh sách cuốc xe chờ nhận đồng thời từ nhiều khách hàng (User 1, User 2,...), có hỗ trợ cuốc đang được quét lại ("Đang tìm lại tài xế").
+  - Khi Backend phát lại retry offer (`expiredAt` mới), đồng hồ 15s tự động reset mượt mà và không làm duplicate/mất cuốc xe.
+- [x] **Task 17.2: Admin Coupon Management Suite**
+  - Tạo `coupon.types.ts` và `coupon.service.ts` tích hợp toàn diện các endpoint CRUD `/api/v1/coupons` theo `API-CONTRACT.md`.
+  - Xây dựng component `CouponModal.tsx` tạo mới và chỉnh sửa mã giảm giá với validation (mã auto-uppercase, loại %, số tiền cố định, đơn tối thiểu, giảm tối đa, thời hạn, số lượt).
+  - Tích hợp Bảng Quản Lý Khuyến Mãi và Thẻ Metric Coupon tại `AdminOverviewPage.tsx` với tính năng Bật/Tắt kích hoạt nhanh và Xóa an toàn.
+- [x] **Task 17.3: Customer GPS Geolocation Native Streamlining (BUG-028)**
+  - Tinh chỉnh `BookingPanel.tsx` theo đúng luồng native nhẹ nhàng, chỉ chạy 1 lần khi khởi động (`[]`), không loop liên tục.
+  - Hỗ trợ thử High Accuracy -> Low Accuracy để lấy đúng vị trí thực tế của thiết bị trên PC/Laptop, không gán tọa độ giả làm sai lệch vị trí của người dùng.
+- [x] **Verification**
+  - `npm test`: 70/70 pass.
+  - `npm run build`: pass TypeScript + Vite production build (0 error).

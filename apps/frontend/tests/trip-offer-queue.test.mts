@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { DriverTripOfferPayload } from '../src/types/socket.types.ts';
-import { queueTripOffer, removeTripOffer, getRemainingOfferSeconds } from '../src/utils/tripOfferQueue.utils.ts';
+import {
+  queueTripOffer,
+  removeTripOffer,
+  getRemainingOfferSeconds,
+  isOfferExpired,
+} from '../src/utils/tripOfferQueue.utils.ts';
 
 const offerA: DriverTripOfferPayload = {
   tripId: 'trip-a',
@@ -20,7 +25,6 @@ const offerB: DriverTripOfferPayload = {
 };
 
 test('retains every distinct simultaneous trip offer for the driver', () => {
-
   assert.deepEqual(
     queueTripOffer(queueTripOffer([], offerA), offerB).map((offer) => offer.tripId),
     ['trip-a', 'trip-b'],
@@ -36,8 +40,19 @@ test('replaces a repeated socket event for the same trip without removing other 
   );
 });
 
-test('removes only the offer that is declined, cancelled, or won by another driver', () => {
+test('updates expiredAt on retry dispatch without losing pending offer queue', () => {
+  const retriedOfferA: DriverTripOfferPayload = {
+    ...offerA,
+    expiredAt: '2026-08-22T10:01:00.000Z',
+  };
 
+  const updatedQueue = queueTripOffer([offerA, offerB], retriedOfferA);
+  assert.equal(updatedQueue.length, 2);
+  assert.equal(updatedQueue[0].expiredAt, '2026-08-22T10:01:00.000Z');
+  assert.equal(updatedQueue[1].tripId, 'trip-b');
+});
+
+test('removes only the offer that is declined, cancelled, or won by another driver', () => {
   assert.deepEqual(
     removeTripOffer([offerA, offerB], 'trip-a').map((offer) => offer.tripId),
     ['trip-b'],
@@ -55,4 +70,12 @@ test('calculates each offer TTL from its backend expiry timestamp', () => {
     ],
     [19, 34, 0],
   );
+});
+
+test('correctly identifies expired offers using isOfferExpired', () => {
+  const futureMs = Date.parse('2026-08-22T10:00:20.000Z');
+  const expiredMs = Date.parse('2026-08-22T10:00:35.000Z');
+
+  assert.equal(isOfferExpired(offerA.expiredAt, futureMs), false);
+  assert.equal(isOfferExpired(offerA.expiredAt, expiredMs), true);
 });

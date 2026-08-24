@@ -10,6 +10,7 @@ import { ServiceType, PaymentMethod, LocationPoint } from '../../types/trip.type
 import { CreditCard, Banknote, Sparkles, Clock, Compass, Bike, Car, UsersRound, WalletCards } from 'lucide-react';
 import { useToast } from '../common/Toast';
 import { getApiErrorMessage } from '../../services/auth.helpers';
+import { geocodingService } from '../../services/geocoding.service';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { canPreviewRoute } from '../../utils/tripRules';
 import type { RoutePreviewData } from '../../types/trip.types';
@@ -51,27 +52,58 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
   const routeRequestIdRef = useRef(0);
   const routeRequestControllerRef = useRef(new LatestRequestController());
 
-  // Tự động lấy định vị GPS thực tế của thiết bị người dùng khi khởi động
+  // Tự động lấy định vị GPS thực tế của thiết bị người dùng khi khởi động (chỉ chạy 1 lần duy nhất)
   useEffect(() => {
-    if (navigator.geolocation) {
-      setIsLocatingGPS(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    setIsLocatingGPS(true);
+
+    const applyPosition = async (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setPickup({
+        lat,
+        lng,
+        address: 'Vị trí GPS hiện tại của tôi',
+      });
+      setIsLocatingGPS(false);
+
+      try {
+        const resolved = await geocodingService.reverse({
+          lat,
+          lng,
+          address: 'Vị trí GPS hiện tại của tôi',
+        });
+        if (resolved?.address) {
           setPickup({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            address: 'Vị trí GPS hiện tại của tôi',
+            lat,
+            lng,
+            address: resolved.address,
           });
+        }
+      } catch {
+        // Giữ nguyên nhãn GPS ban đầu
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      applyPosition,
+      (err) => {
+        if (err.code === 1) {
           setIsLocatingGPS(false);
-        },
-        () => {
-          setIsLocatingGPS(false);
-          // Fallback về trung tâm TP.HCM nếu bị từ chối quyền
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
-  }, [setPickup]);
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          applyPosition,
+          () => {
+            setIsLocatingGPS(false);
+          },
+          { enableHighAccuracy: false, timeout: 6000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
+  }, []);
 
   const [faresByType, setFaresByType] = useState<{
     BIKE?: RoutePreviewData | null;
@@ -145,25 +177,76 @@ export const BookingPanel: React.FC<BookingPanelProps> = ({ onStartFindingDriver
 
   // Nút chủ động làm mới GPS
   const handleRefreshCurrentGPS = () => {
-    if (navigator.geolocation) {
-      setIsLocatingGPS(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation || isLocatingGPS) return;
+
+    setIsLocatingGPS(true);
+
+    const handleGpsError = (err: GeolocationPositionError) => {
+      setIsLocatingGPS(false);
+      if (err.code === 1) {
+        showToast(
+          'Trình duyệt đang chặn quyền vị trí. Vui lòng bấm biểu tượng Khóa 🔒 cạnh URL để Bật "Vị trí" (Allow), hoặc click chọn trên bản đồ.',
+          'warning',
+        );
+      } else if (err.code === 2) {
+        showToast(
+          'Thiết bị chưa bật dịch vụ định vị (Hãy kiểm tra Location trong Windows Settings hoặc click chọn trên bản đồ).',
+          'warning',
+        );
+      } else if (err.code === 3) {
+        showToast('Hết thời gian tìm GPS. Vui lòng thử lại hoặc click chọn điểm đón trên bản đồ.', 'warning');
+      } else {
+        showToast('Không thể lấy vị trí GPS, vui lòng kiểm tra quyền hoặc chọn trên bản đồ', 'warning');
+      }
+    };
+
+    const applyPosition = async (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setPickup({
+        lat,
+        lng,
+        address: 'Vị trí GPS hiện tại của tôi',
+      });
+      setIsLocatingGPS(false);
+      showToast('Đã định vị thành công vị trí GPS của bạn!', 'success');
+
+      try {
+        const resolved = await geocodingService.reverse({
+          lat,
+          lng,
+          address: 'Vị trí GPS hiện tại của tôi',
+        });
+        if (resolved?.address) {
           setPickup({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            address: 'Vị trí GPS hiện tại của tôi',
+            lat,
+            lng,
+            address: resolved.address,
           });
-          setIsLocatingGPS(false);
-          showToast('Đã định vị thành công vị trí GPS của bạn!', 'success');
-        },
-        () => {
-          setIsLocatingGPS(false);
-          showToast('Không thể lấy quyền truy cập GPS, vui lòng kiểm tra quyền trình duyệt', 'warning');
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
+        }
+      } catch {
+        // Giữ nguyên nhãn GPS ban đầu
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      applyPosition,
+      (err) => {
+        if (err.code === 1) {
+          handleGpsError(err);
+          return;
+        }
+        // Thử lại lần 2 với độ chính xác tiêu chuẩn (phù hợp PC/Laptop)
+        navigator.geolocation.getCurrentPosition(
+          applyPosition,
+          (err2) => {
+            handleGpsError(err2);
+          },
+          { enableHighAccuracy: false, timeout: 8000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
   };
 
   // Chọn điểm đến gợi ý

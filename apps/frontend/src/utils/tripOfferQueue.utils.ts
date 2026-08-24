@@ -30,3 +30,14 @@ export function getRemainingOfferSeconds(
 
   return Math.max(0, Math.ceil((expiredAtMs - currentTimeMs) / 1000));
 }
+
+/**
+ * Kiểm tra xem một offer có phải là đợt retry phát lại hay không
+ * (Dựa trên chênh lệch thời gian hoặc danh sách tripId đã từng thấy)
+ */
+export function isOfferExpired(
+  expiredAt: string,
+  currentTimeMs = Date.now(),
+): boolean {
+  return getRemainingOfferSeconds(expiredAt, currentTimeMs) <= 0;
+}
