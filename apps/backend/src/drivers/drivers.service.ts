@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DriverLocation } from './entities/driver-location.entity';
+import { DriverProfile } from './entities/driver-profile.entity';
 import { SystemConfigsService } from '../system-configs/system-configs.service';
 
 @Injectable()
@@ -9,8 +10,16 @@ export class DriversService {
   constructor(
     @InjectRepository(DriverLocation)
     private driverLocationRepo: Repository<DriverLocation>,
+    @InjectRepository(DriverProfile)
+    private driverProfileRepo: Repository<DriverProfile>,
     private systemConfigsService: SystemConfigsService,
   ) {}
+
+  async getDriverProfile(driverId: string): Promise<DriverProfile | null> {
+    const profile = await this.driverProfileRepo.findOne({ where: { user_id: driverId } });
+    if (!profile) throw new NotFoundException('Driver profile not found');
+    return profile;
+  }
 
   async toggleOnlineStatus(driverId: string, isOnline: boolean): Promise<DriverLocation> {
     let location = await this.driverLocationRepo.findOne({ where: { user_id: driverId } });

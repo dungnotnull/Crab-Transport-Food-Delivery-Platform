@@ -468,6 +468,14 @@ export class TripsService {
       .where('user_id = :driverId', { driverId: trip.driver_id })
       .execute();
       
+    if (trip.driver_id) {
+      this.trackingGateway.server.to(`driver_${trip.driver_id}`).emit('driver:rating_updated', {
+        average_rating: newAverage,
+        tripId: trip.id,
+        rating,
+      });
+    }
+
     return savedReview;
   }
 

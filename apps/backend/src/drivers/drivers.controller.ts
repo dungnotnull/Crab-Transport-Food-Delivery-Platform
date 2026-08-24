@@ -1,4 +1,4 @@
-import { Controller, Patch, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Patch, Body, UseGuards, Req, Get } from '@nestjs/common';
 import { DriversService } from './drivers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -9,6 +9,12 @@ import { Role } from '../users/entities/user.entity';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DriversController {
   constructor(private readonly driversService: DriversService) {}
+
+  @Get('profile')
+  @Roles(Role.DRIVER)
+  async getProfile(@Req() req: any) {
+    return this.driversService.getDriverProfile(req.user.id);
+  }
 
   @Patch('status')
   @Roles(Role.DRIVER)
