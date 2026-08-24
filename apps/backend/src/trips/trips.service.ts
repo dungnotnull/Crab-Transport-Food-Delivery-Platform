@@ -109,6 +109,7 @@ export class TripsService {
         payment_method: paymentMethod || PaymentMethod.CASH,
         payment_status: PaymentStatus.PENDING,
         estimated_duration: Math.ceil(route.duration / 60),
+        rejected_by: [],
       });
 
       return await transactionalEntityManager.save(trip);
@@ -246,15 +247,18 @@ export class TripsService {
     const [lng, lat] = trip.pickup_location.coordinates;
     const availableDrivers = await this.driversService.findAvailableDrivers(lng, lat, trip.vehicle_type, 3000, 5);
 
-    if (availableDrivers.length === 0) {
-      this.logger.warn(`No available drivers found for trip ${trip.id}`);
+    const rejectedBy = trip.rejected_by || [];
+    const eligibleDrivers = availableDrivers.filter(d => !rejectedBy.includes(d.user_id));
+
+    if (eligibleDrivers.length === 0) {
+      this.logger.warn(`No eligible drivers found for trip ${trip.id}`);
       return;
     }
 
-    this.logger.log(`Found ${availableDrivers.length} drivers for trip ${trip.id}. Dispatching...`);
+    this.logger.log(`Found ${eligibleDrivers.length} drivers for trip ${trip.id}. Dispatching...`);
     
     // Broadcast via Socket.io to the drivers
-    availableDrivers.forEach(driver => {
+    eligibleDrivers.forEach(driver => {
       this.logger.debug(`Offer trip ${trip.id} to driver ${driver.user_id}`);
       this.trackingGateway.emitOrderOffer(driver.user_id, {
         tripId: trip.id,
@@ -317,6 +321,41 @@ export class TripsService {
     return acceptedTrip;
   }
 
+  async rejectTrip(tripId: string, driverId: string): Promise<void> {
+    const updatedTrip = await this.tripsRepository.manager.transaction(async (transactionalEntityManager) => {
+      const trip = await transactionalEntityManager
+        .createQueryBuilder(Trip, 'trip')
+        .setLock('pessimistic_write')
+        .where('trip.id = :id', { id: tripId })
+        .getOne();
+
+      if (!trip) throw new NotFoundException('Trip not found');
+      if (trip.status !== TripStatus.FINDING_DRIVER) {
+        this.logger.log(`Driver ${driverId} rejected trip ${tripId} but it's in status ${trip.status}`);
+        return null;
+      }
+
+      trip.rejected_by = trip.rejected_by || [];
+      if (!trip.rejected_by.includes(driverId)) {
+        trip.rejected_by.push(driverId);
+        await transactionalEntityManager.save(trip);
+      }
+      
+      this.logger.log(`Trip ${tripId} explicitly rejected by driver ${driverId}`);
+      return trip;
+    });
+
+    if (updatedTrip) {
+      // Re-trigger dispatching immediately to find another driver
+      this.eventEmitter.emit('trip.created', updatedTrip);
+      
+      // Also dismiss the offer for this specific driver in UI just in case
+      this.trackingGateway.server.to(`driver_${driverId}`).emit('driver:trip_cancelled_offer', {
+        tripId: tripId
+      });
+    }
+  }
+
   async cancelTrip(tripId: string, userId: string, role: Role): Promise<Trip> {
     return await this.tripsRepository.manager.transaction(async (transactionalEntityManager) => {
       const trip = await transactionalEntityManager
@@ -348,6 +387,10 @@ export class TripsService {
         // Driver cancels -> reset trip so it finds another driver
         trip.status = TripStatus.FINDING_DRIVER;
         trip.driver_id = null;
+        trip.rejected_by = trip.rejected_by || [];
+        if (!trip.rejected_by.includes(userId)) {
+          trip.rejected_by.push(userId);
+        }
         
         const driverLoc = await transactionalEntityManager.findOne(DriverLocation, { where: { user_id: userId } });
         if (driverLoc) {

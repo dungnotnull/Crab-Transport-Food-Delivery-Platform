@@ -110,6 +110,9 @@ export class Trip {
   @Column('int', { default: 0 })
   estimated_duration: number; // in minutes
 
+  @Column('uuid', { array: true, default: [] })
+  rejected_by: string[];
+
   @CreateDateColumn()
   created_at: Date;
 

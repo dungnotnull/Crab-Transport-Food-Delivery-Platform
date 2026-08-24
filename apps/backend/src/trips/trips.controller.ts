@@ -47,6 +47,13 @@ export class TripsController {
     return this.tripsService.cancelTrip(tripId, userId, role);
   }
 
+  @Post(':id/reject')
+  @Roles(Role.DRIVER)
+  async rejectTrip(@Req() req: any, @Param('id') tripId: string) {
+    const driverId = req.user.id;
+    return this.tripsService.rejectTrip(tripId, driverId);
+  }
+
   @Post(':id/rating')
   @Roles(Role.CUSTOMER)
   async submitReview(
